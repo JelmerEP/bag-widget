@@ -78,14 +78,14 @@
   </div>
 
   <script>
-    var adresInput     = document.getElementById('bag-adres-input');
-    var suggestieEl    = document.getElementById('suggesties');
-    var statusEl       = document.getElementById('bag-status');
-    var resultaatEl    = document.getElementById('bag-resultaat');
+    var adresInput  = document.getElementById('bag-adres-input');
+    var suggestieEl = document.getElementById('suggesties');
+    var statusEl    = document.getElementById('bag-status');
+    var resultaatEl = document.getElementById('bag-resultaat');
     var resBouwjaar = document.getElementById('res-bouwjaar');
     var resHoogte   = document.getElementById('res-hoogte');
-    var zoekTimer      = null;
-    var bagData        = {};
+    var zoekTimer   = null;
+    var bagData     = {};
 
     JFCustomWidget.subscribe('ready', function () {
       var bestaand = JFCustomWidget.getWidgetSetting('defaultValue');
@@ -99,8 +99,6 @@
       return 'Bouwjaar: ' + bj + '  |  Gebouwhoogte: ' + ht;
     }
 
-    // Bij elke nieuwe waarde meteen doorgeven aan JotForm, zodat de
-    // laatst gevonden gegevens altijd in de inzending terechtkomen.
     JFCustomWidget.subscribe('submit', function () {
       JFCustomWidget.sendSubmit({
         valid: true,
@@ -229,7 +227,7 @@
         });
     }
 
-    // ── Stap 4: 3DBAG WFS (TU Delft) → gebouwhoogte ─────────────────────────
+    // ── Stap 4: 3DBAG WFS (TU Delft) → gebouwhoogte (hoogste punt) ──────────
     // De items-API (api.3dbag.nl) heeft geen CORS; de WFS (data.3dbag.nl) wél.
 
     function haal3DBAG(pandId) {
@@ -240,9 +238,10 @@
         ? 'NL.IMBAG.Pand.' + pandId
         : pandId;
 
+      // count hoog genoeg om alle gebouwdelen van het pand op te halen
       fetch('https://data.3dbag.nl/api/BAG3D/wfs'
         + '?service=WFS&version=2.0.0&request=GetFeature'
-        + '&typeNames=BAG3D:lod12&count=1'
+        + '&typeNames=BAG3D:lod12&count=100'
         + '&outputFormat=application/json'
         + "&CQL_FILTER=identificatie='" + id3d + "'")
         .then(function (r) {
@@ -250,18 +249,25 @@
           return r.json();
         })
         .then(function (data) {
-          var f = data && data.features && data.features[0];
-          var props = f && f.properties;
-          console.log('3DBAG properties:', JSON.stringify(props));
+          var features = (data && data.features) || [];
+          console.log('3DBAG: ' + features.length + ' gebouwdeel(en) gevonden');
 
-          if (props && props.b3_h_50p != null) {
-            var dak      = props.b3_h_50p;                  // dakhoogte (m t.o.v. NAP)
-            var maaiveld = props.b3_h_maaiveld != null ? props.b3_h_maaiveld : 0;
-            bagData.hoogte = (dak - maaiveld).toFixed(1);   // gebouwhoogte in meters
+          // Hoogste punt van het hele gebouw: max(b3_h_max - maaiveld) over alle delen
+          var maxHoogte = null;
+          features.forEach(function (f) {
+            var p = f.properties;
+            if (!p || p.b3_h_max == null) return;
+            var maaiveld = p.b3_h_maaiveld != null ? p.b3_h_maaiveld : 0;
+            var h = p.b3_h_max - maaiveld;
+            if (maxHoogte === null || h > maxHoogte) maxHoogte = h;
+          });
+
+          if (maxHoogte !== null) {
+            bagData.hoogte = maxHoogte.toFixed(1);          // gebouwhoogte in meters
             resHoogte.textContent = bagData.hoogte + ' m';
             toonStatus('Alle gegevens gevonden ✓', 'ok');
           } else {
-            console.warn('b3_h_50p niet gevonden in 3DBAG:', JSON.stringify(props));
+            console.warn('b3_h_max niet gevonden in 3DBAG-respons');
             toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
           }
 

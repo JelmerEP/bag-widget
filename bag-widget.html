@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -160,7 +161,7 @@
       }
     });
 
-    // ── Stap 2: PDOK lookup → lon/lat coördinaten ───────────────────────────
+    // ── Stap 2: PDOK lookup → RD-coördinaten (EPSG:28992) ───────────────────
 
     function haalLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
@@ -171,7 +172,8 @@
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
 
-          var match = doc.centroide_ll && doc.centroide_ll.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+          // RD-coördinaten (EPSG:28992) gebruiken — geen asorde-verwarring zoals bij lat/lon
+          var match = doc.centroide_rd && doc.centroide_rd.match(/POINT\(([^ ]+) ([^ ]+)\)/);
           if (!match) { toonStatus('Coördinaten niet gevonden', 'fout'); return; }
 
           haalVerblijfsobject(parseFloat(match[1]), parseFloat(match[2]));
@@ -181,18 +183,19 @@
 
     // ── Stap 3: PDOK BAG WFS → bouwjaar + pandId voor 3DBAG ────────────────
 
-    function haalVerblijfsobject(lon, lat) {
+    function haalVerblijfsobject(x, y) {
       toonStatus('BAG gegevens ophalen…', 'bezig');
 
-      var d    = 0.0001; // ~10 meter bounding box rondom het punt
-      var bbox = (lon - d).toFixed(7) + ',' + (lat - d).toFixed(7) + ','
-               + (lon + d).toFixed(7) + ',' + (lat + d).toFixed(7);
+      var d    = 10; // 10 meter bounding box rondom het punt (RD-coördinaten)
+      var bbox = (x - d).toFixed(3) + ',' + (y - d).toFixed(3) + ','
+               + (x + d).toFixed(3) + ',' + (y + d).toFixed(3);
 
       fetch('https://service.pdok.nl/lv/bag/wfs/v2_0'
         + '?service=WFS&version=2.0.0&request=GetFeature'
         + '&typeNames=bag:verblijfsobject&count=1'
         + '&outputFormat=application/json'
-        + '&BBOX=' + bbox + ',urn:ogc:def:crs:EPSG::4326')
+        + '&srsName=urn:ogc:def:crs:EPSG::28992'
+        + '&BBOX=' + bbox + ',urn:ogc:def:crs:EPSG::28992')
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var features = data && data.features;
@@ -226,47 +229,39 @@
         });
     }
 
-    // ── Stap 4: 3DBAG API (TU Delft) → gebouwhoogte ─────────────────────────
+    // ── Stap 4: 3DBAG WFS (TU Delft) → gebouwhoogte ─────────────────────────
+    // De items-API (api.3dbag.nl) heeft geen CORS; de WFS (data.3dbag.nl) wél.
 
     function haal3DBAG(pandId) {
       toonStatus('Gebouwhoogte ophalen…', 'bezig');
 
-      // 3DBAG gebruikt INSPIRE-formaat: NL.IMBAG.Pand.{16-cijferig-id}
+      // 3DBAG verwacht het INSPIRE-formaat: NL.IMBAG.Pand.{id}
       var id3d = pandId.indexOf('NL.IMBAG') === -1
         ? 'NL.IMBAG.Pand.' + pandId
         : pandId;
 
-      fetch('https://api.3dbag.nl/collections/pand/items/'
-        + encodeURIComponent(id3d) + '?f=json')
+      fetch('https://data.3dbag.nl/api/BAG3D/wfs'
+        + '?service=WFS&version=2.0.0&request=GetFeature'
+        + '&typeNames=BAG3D:lod12&count=1'
+        + '&outputFormat=application/json'
+        + "&CQL_FILTER=identificatie='" + id3d + "'")
         .then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
         })
         .then(function (data) {
-          console.log('3DBAG response:', JSON.stringify(data).substring(0, 600));
+          var f = data && data.features && data.features[0];
+          var props = f && f.properties;
+          console.log('3DBAG properties:', JSON.stringify(props));
 
-          // 3DBAG v2: { "feature": { "properties": {...} } }
-          // Fallback voor directe GeoJSON-structuur
-          var props = (data.feature && data.feature.properties)
-                   || data.properties
-                   || null;
-
-          if (props) {
-            var hDak      = props.h_dak_50p;
-            var hMaaiveld = props.h_maaiveld_50p != null
-                          ? props.h_maaiveld_50p
-                          : (props.h_maaiveld != null ? props.h_maaiveld : 0);
-
-            if (hDak != null) {
-              // Gebouwhoogte = daknok - maaiveld (beide in meters t.o.v. NAP)
-              bagData.hoogte = (hDak - hMaaiveld).toFixed(1);
-              resHoogte.textContent = bagData.hoogte + ' m';
-              toonStatus('Alle gegevens gevonden ✓', 'ok');
-            } else {
-              console.warn('h_dak_50p niet gevonden. Beschikbare velden:', JSON.stringify(props));
-              toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
-            }
+          if (props && props.b3_h_50p != null) {
+            var dak      = props.b3_h_50p;                  // dakhoogte (m t.o.v. NAP)
+            var maaiveld = props.b3_h_maaiveld != null ? props.b3_h_maaiveld : 0;
+            bagData.hoogte = (dak - maaiveld).toFixed(1);   // gebouwhoogte in meters
+            resHoogte.textContent = bagData.hoogte + ' m';
+            toonStatus('Alle gegevens gevonden ✓', 'ok');
           } else {
+            console.warn('b3_h_50p niet gevonden in 3DBAG:', JSON.stringify(props));
             toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
           }
 

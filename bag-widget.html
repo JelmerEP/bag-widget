@@ -63,13 +63,8 @@
   <div id="bag-status"></div>
 
   <script>
-    // Veld-IDs: alleen het getal achter input_
-    var VELD = {
-      adres:    '131',
-      postcode: '132',
-      bouwjaar: '18',
-      hoogte:   '29'
-    };
+    var VELD_BOUWJAAR = '18';
+    var VELD_HOOGTE   = '29';
 
     var adresInput  = document.getElementById('bag-adres-input');
     var suggestieEl = document.getElementById('suggesties');
@@ -90,12 +85,14 @@
       statusEl.className   = 'status-' + type;
     }
 
-    // Veld vullen via postMessage naar Jotform parent
     function vulVeld(id, waarde) {
-      window.parent.postMessage('{"action":"setFieldValue","fieldID":"input_' + id + '","value":"' + waarde + '"}', '*');
+      window.parent.postMessage(
+        '{"action":"setFieldValue","fieldID":"input_' + id + '","value":"' + waarde + '"}',
+        '*'
+      );
     }
 
-    // Suggesties ophalen via PDOK
+    // Stap 1: suggesties ophalen via PDOK
     adresInput.addEventListener('input', function() {
       clearTimeout(zoekTimer);
       var q = adresInput.value.trim();
@@ -118,7 +115,7 @@
               item.addEventListener('click', function() {
                 adresInput.value          = doc.weergavenaam;
                 suggestieEl.style.display = 'none';
-                haalBAGGegevens(doc.id, doc.weergavenaam);
+                haalPdokLookup(doc.id);
               });
               suggestieEl.appendChild(item);
             });
@@ -133,40 +130,34 @@
       }
     });
 
-    // Stap 1: PDOK lookup → postcode + adresseerbaarobject_id
-    function haalBAGGegevens(pdokId, weergavenaam) {
-      toonStatus('BAG gegevens ophalen…', 'bezig');
-      fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id=' + encodeURIComponent(pdokId))
+    // Stap 2: PDOK lookup → adresseerbaarobject_id
+    function haalPdokLookup(pdokId) {
+      toonStatus('Adres opzoeken…', 'bezig');
+      fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
+        + encodeURIComponent(pdokId))
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
-
-          vulVeld(VELD.adres,    weergavenaam);
-          vulVeld(VELD.postcode, doc.postcode || '');
-
           var verblijfsobjectId = doc.adresseerbaarobject_id;
-          console.log('adresseerbaarobject_id:', verblijfsobjectId);
-
+          console.log('verblijfsobjectId:', verblijfsobjectId);
           if (verblijfsobjectId) {
-            haalPandIdViaWFS(verblijfsobjectId);
+            haalPandId(verblijfsobjectId);
           } else {
-            toonStatus('Postcode ingevuld ✓', 'ok');
+            toonStatus('Pand niet gevonden', 'fout');
           }
         })
-        .catch(function() { toonStatus('Fout bij BAG lookup', 'fout'); });
+        .catch(function() { toonStatus('Fout bij opzoeken', 'fout'); });
     }
 
-    // Stap 2: verblijfsobject → pand_id via PDOK WFS (geen API key nodig)
-    function haalPandIdViaWFS(verblijfsobjectId) {
+    // Stap 3: verblijfsobject → pand_id via PDOK WFS
+    function haalPandId(verblijfsobjectId) {
       toonStatus('Pand opzoeken…', 'bezig');
-
-      // PDOK BAG WFS: zoek pand op via verblijfsobject identificatie
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
         + '?service=WFS&version=2.0.0&request=GetFeature'
-        + '&typeNames=bag:verblijfsobject'
-        + '&count=1&outputFormat=application/json'
-        + '&CQL_FILTER=identificatie=' + "'" + verblijfsobjectId + "'";
+        + '&typeNames=bag:verblijfsobject&count=1'
+        + '&outputFormat=application/json'
+        + "&CQL_FILTER=identificatie='" + verblijfsobjectId + "'";
 
       fetch(url)
         .then(function(r) { return r.json(); })
@@ -174,35 +165,32 @@
           console.log('WFS verblijfsobject:', JSON.stringify(data).substring(0, 500));
           var features = data && data.features;
           if (!features || !features.length) {
-            toonStatus('Postcode ingevuld ✓ (pand niet gevonden)', 'ok');
+            toonStatus('Pand niet gevonden', 'fout');
             return;
           }
-          var props   = features[0].properties;
-          var pandRef = props && (props.pandidentificatie || props.pand_identificatie);
-          console.log('pandRef:', pandRef);
-
-          if (pandRef) {
-            haalPandGegevens(pandRef);
+          var props  = features[0].properties;
+          var pandId = props && (props.pandidentificatie || props.pand_identificatie);
+          console.log('pandId:', pandId);
+          if (pandId) {
+            haalBouwjaar(pandId);
           } else {
-            toonStatus('Postcode ingevuld ✓ (pand niet gevonden)', 'ok');
+            toonStatus('Pand niet gevonden', 'fout');
           }
         })
         .catch(function(err) {
           console.error('WFS fout:', err);
-          toonStatus('Postcode ingevuld ✓', 'ok');
+          toonStatus('Fout bij ophalen pand', 'fout');
         });
     }
 
-    // Stap 3: pand_id → bouwjaar via PDOK WFS
-    function haalPandGegevens(pandId) {
+    // Stap 4: pand → bouwjaar via PDOK WFS
+    function haalBouwjaar(pandId) {
       toonStatus('Bouwjaar ophalen…', 'bezig');
-      console.log('Pand ID:', pandId);
-
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
         + '?service=WFS&version=2.0.0&request=GetFeature'
-        + '&typeNames=bag:pand'
-        + '&count=1&outputFormat=application/json'
-        + '&CQL_FILTER=identificatie=' + "'" + pandId + "'";
+        + '&typeNames=bag:pand&count=1'
+        + '&outputFormat=application/json'
+        + "&CQL_FILTER=identificatie='" + pandId + "'";
 
       fetch(url)
         .then(function(r) { return r.json(); })
@@ -213,40 +201,37 @@
             var props    = features[0].properties;
             var bouwjaar = props && (props.bouwjaar || props.oorspronkelijkbouwjaar);
             console.log('Bouwjaar:', bouwjaar);
-            if (bouwjaar) {
-              vulVeld(VELD.bouwjaar, String(bouwjaar));
-            }
+            if (bouwjaar) vulVeld(VELD_BOUWJAAR, String(bouwjaar));
           }
-          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
           haalGebouwhoogte(pandId);
         })
         .catch(function(err) {
-          console.error('Pand WFS fout:', err);
-          toonStatus('Postcode ingevuld ✓', 'ok');
+          console.error('Bouwjaar fout:', err);
           haalGebouwhoogte(pandId);
         });
     }
 
-    // Stap 4: gebouwhoogte via 3D BAG (TU Delft)
+    // Stap 5: gebouwhoogte via 3D BAG (TU Delft)
     function haalGebouwhoogte(pandId) {
       toonStatus('Gebouwhoogte ophalen…', 'bezig');
-      fetch('https://api.3dbag.nl/collections/pand/items/' + encodeURIComponent(pandId) + '?f=json')
+      fetch('https://api.3dbag.nl/collections/pand/items/'
+        + encodeURIComponent(pandId) + '?f=json')
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          var props  = data && data.properties;
-          if (!props) { toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok'); return; }
-          console.log('3D BAG:', JSON.stringify(props).substring(0, 300));
+          var props = data && data.properties;
+          console.log('3D BAG:', props ? JSON.stringify(props).substring(0, 300) : 'geen props');
+          if (!props) { toonStatus('Bouwjaar ingevuld ✓', 'ok'); return; }
           var hoogte = (props['h_dak_50p'] !== null && props['h_dak_50p'] !== undefined)
             ? props['h_dak_50p'] : props['h_dak_max'];
           if (hoogte !== null && hoogte !== undefined) {
-            vulVeld(VELD.hoogte, String(hoogte));
-            toonStatus('Alle BAG-gegevens ingevuld ✓', 'ok');
+            vulVeld(VELD_HOOGTE, String(hoogte));
+            toonStatus('Bouwjaar en gebouwhoogte ingevuld ✓', 'ok');
           } else {
-            toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
+            toonStatus('Bouwjaar ingevuld ✓', 'ok');
           }
         })
         .catch(function() {
-          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
+          toonStatus('Bouwjaar ingevuld ✓', 'ok');
         });
     }
   </script>

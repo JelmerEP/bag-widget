@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -55,6 +56,7 @@
       font-size: 13px;
       display: none;
     }
+    #bag-resultaat table { width: 100%; }
     #bag-resultaat td { padding: 3px 6px; }
     #bag-resultaat td:first-child { color: #666; width: 120px; }
     #bag-resultaat td:last-child { font-weight: bold; }
@@ -70,26 +72,31 @@
   <div id="bag-status"></div>
   <div id="bag-resultaat">
     <table>
-      <tr><td>Bouwjaar:</td><td id="res-bouwjaar">—</td></tr>
+      <tr><td>Bouwjaar:</td>     <td id="res-bouwjaar">—</td></tr>
+      <tr><td>Gebouwhoogte:</td> <td id="res-hoogte">—</td></tr>
     </table>
   </div>
 
   <script>
-    var adresInput  = document.getElementById('bag-adres-input');
-    var suggestieEl = document.getElementById('suggesties');
-    var statusEl    = document.getElementById('bag-status');
-    var resultaatEl = document.getElementById('bag-resultaat');
+    var adresInput     = document.getElementById('bag-adres-input');
+    var suggestieEl    = document.getElementById('suggesties');
+    var statusEl       = document.getElementById('bag-status');
+    var resultaatEl    = document.getElementById('bag-resultaat');
     var resBouwjaar = document.getElementById('res-bouwjaar');
-    var zoekTimer   = null;
-    var gevondenBouwjaar = '';
+    var resHoogte   = document.getElementById('res-hoogte');
+    var zoekTimer      = null;
+    var bagData        = {};
 
-    JFCustomWidget.subscribe('ready', function() {
+    JFCustomWidget.subscribe('ready', function () {
       var bestaand = JFCustomWidget.getWidgetSetting('defaultValue');
       if (bestaand) adresInput.value = bestaand;
     });
 
-    JFCustomWidget.subscribe('submit', function() {
-      JFCustomWidget.sendSubmit({ valid: true, value: gevondenBouwjaar || adresInput.value });
+    JFCustomWidget.subscribe('submit', function () {
+      JFCustomWidget.sendSubmit({
+        valid: true,
+        value: bagData.bouwjaar || adresInput.value
+      });
     });
 
     function toonStatus(tekst, type) {
@@ -97,31 +104,46 @@
       statusEl.className   = 'status-' + type;
     }
 
-    // Reset bij nieuw adres
-    adresInput.addEventListener('input', function() {
+    // Stuurt alle opgehaalde BAG-data naar de JotForm-pagina.
+    // De header-JS in JotForm vangt dit op en vult de formuliervelden in.
+    function stuurNaarFormulier() {
+      window.parent.postMessage({
+        source:   'bag-widget',
+        bouwjaar: bagData.bouwjaar || '',
+        hoogte:   bagData.hoogte   || ''
+      }, '*');
+    }
+
+    function reset() {
+      suggestieEl.style.display = 'none';
+      suggestieEl.innerHTML     = '';
+      statusEl.className        = '';
+      resultaatEl.style.display = 'none';
+      resBouwjaar.textContent   = '—';
+      resHoogte.textContent     = '—';
+      bagData = {};
+    }
+
+    // ── Stap 1: PDOK autocomplete ────────────────────────────────────────────
+
+    adresInput.addEventListener('input', function () {
       clearTimeout(zoekTimer);
       var q = adresInput.value.trim();
-      suggestieEl.style.display = 'none';
-      suggestieEl.innerHTML = '';
-      statusEl.className = '';
-      resultaatEl.style.display = 'none';
-      resBouwjaar.textContent = '—';
-      gevondenBouwjaar = '';
+      reset();
       if (q.length < 5) return;
 
-      zoekTimer = setTimeout(function() {
+      zoekTimer = setTimeout(function () {
         fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q='
           + encodeURIComponent(q) + '&fq=type:adres&rows=5')
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
             var docs = data && data.response && data.response.docs;
             if (!docs || !docs.length) return;
-            suggestieEl.innerHTML = '';
-            docs.forEach(function(doc) {
+            docs.forEach(function (doc) {
               var item = document.createElement('div');
               item.className   = 'suggestie-item';
               item.textContent = doc.weergavenaam;
-              item.addEventListener('click', function() {
+              item.addEventListener('click', function () {
                 adresInput.value          = doc.weergavenaam;
                 suggestieEl.style.display = 'none';
                 haalLookup(doc.id);
@@ -129,101 +151,134 @@
               suggestieEl.appendChild(item);
             });
             suggestieEl.style.display = 'block';
-          }).catch(function() {});
+          })
+          .catch(function () {});
       }, 400);
     });
 
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
       if (!document.getElementById('zoek-wrapper').contains(e.target)) {
         suggestieEl.style.display = 'none';
       }
     });
 
-    // Stap 1: PDOK lookup → coördinaten ophalen
+    // ── Stap 2: PDOK lookup → lon/lat coördinaten ───────────────────────────
+
     function haalLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
-      console.log('Stap 1 - lookup id:', pdokId);
-
       fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
         + encodeURIComponent(pdokId))
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
 
-          // Haal coordinaten op uit centroide_ll: "POINT(lon lat)"
-          var centroide = doc.centroide_ll;
-          console.log('Stap 1 - centroide_ll:', centroide);
-
-          var match = centroide && centroide.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+          var match = doc.centroide_ll && doc.centroide_ll.match(/POINT\(([^ ]+) ([^ ]+)\)/);
           if (!match) { toonStatus('Coördinaten niet gevonden', 'fout'); return; }
 
-          var lon = parseFloat(match[1]);
-          var lat = parseFloat(match[2]);
-          console.log('Stap 1 - lon:', lon, 'lat:', lat);
-
-          haalVerblijfsobjectViaBBOX(lon, lat);
+          haalVerblijfsobject(parseFloat(match[1]), parseFloat(match[2]));
         })
-        .catch(function(e) {
-          console.error('Stap 1 fout:', e);
-          toonStatus('Fout bij opzoeken', 'fout');
-        });
+        .catch(function () { toonStatus('Fout bij lookup', 'fout'); });
     }
 
-    // Stap 2: WFS BBOX query — geen CQL_FILTER, werkt altijd
-    function haalVerblijfsobjectViaBBOX(lon, lat) {
-      toonStatus('Pand opzoeken…', 'bezig');
+    // ── Stap 3: PDOK BAG WFS → bouwjaar + pandId voor 3DBAG ────────────────
 
-      // Kleine bounding box van ~10 meter rondom het punt
-      var delta = 0.0001;
-      var minx  = (lon - delta).toFixed(7);
-      var miny  = (lat - delta).toFixed(7);
-      var maxx  = (lon + delta).toFixed(7);
-      var maxy  = (lat + delta).toFixed(7);
-      var bbox  = minx + ',' + miny + ',' + maxx + ',' + maxy;
+    function haalVerblijfsobject(lon, lat) {
+      toonStatus('BAG gegevens ophalen…', 'bezig');
 
-      var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
+      var d    = 0.0001; // ~10 meter bounding box rondom het punt
+      var bbox = (lon - d).toFixed(7) + ',' + (lat - d).toFixed(7) + ','
+               + (lon + d).toFixed(7) + ',' + (lat + d).toFixed(7);
+
+      fetch('https://service.pdok.nl/lv/bag/wfs/v2_0'
         + '?service=WFS&version=2.0.0&request=GetFeature'
-        + '&typeNames=bag:verblijfsobject'
-        + '&count=5'
+        + '&typeNames=bag:verblijfsobject&count=1'
         + '&outputFormat=application/json'
-        + '&BBOX=' + bbox + ',urn:ogc:def:crs:EPSG::4326'
-        + '&_=' + Date.now();
-
-      console.log('Stap 2 - BBOX URL:', url);
-
-      fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          console.log('Stap 2 - WFS result:', JSON.stringify(data).substring(0, 600));
+        + '&BBOX=' + bbox + ',urn:ogc:def:crs:EPSG::4326')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
           var features = data && data.features;
           if (!features || !features.length) {
-            toonStatus('Pand niet gevonden', 'fout');
+            toonStatus('Verblijfsobject niet gevonden', 'fout');
             return;
           }
 
-          // Pak eerste verblijfsobject, log alle properties
-          var props    = features[0].properties;
-          console.log('Stap 2 - properties:', JSON.stringify(props));
+          var props = features[0].properties;
+          // Alle beschikbare veldnamen loggen zodat je ze kunt verifiëren
+          console.log('BAG verblijfsobject properties:', JSON.stringify(props));
 
-          var bouwjaar = props.bouwjaar;
-          console.log('Stap 2 - bouwjaar:', bouwjaar);
-          console.log('Stap 2 - postcode:', props.postcode, 'huisnummer:', props.huisnummer);
+          bagData.bouwjaar = String(props.bouwjaar || '');
+          // Veldnaam kan 'pandidentificatie' of 'pandref' zijn afhankelijk van WFS-versie
+          bagData.pandId   = props.pandidentificatie || props.pandref || '';
 
-          if (bouwjaar) {
-            gevondenBouwjaar = String(bouwjaar);
-            resBouwjaar.textContent = bouwjaar;
-            resultaatEl.style.display = 'block';
-            toonStatus('Bouwjaar gevonden ✓', 'ok');
-            // Stuur waarde als widget-value zodat conditional logic het kan kopiëren
-            JFCustomWidget.sendSubmit({ valid: true, value: gevondenBouwjaar });
+          resBouwjaar.textContent   = bagData.bouwjaar || '—';
+          resultaatEl.style.display = 'block';
+
+          if (bagData.pandId) {
+            haal3DBAG(bagData.pandId);
           } else {
-            toonStatus('Bouwjaar niet beschikbaar', 'fout');
+            console.warn('Geen pandidentificatie gevonden. Beschikbare velden:', JSON.stringify(props));
+            toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
+            stuurNaarFormulier();
           }
         })
-        .catch(function(e) {
-          console.error('Stap 2 fout:', e);
-          toonStatus('Fout bij pand ophalen', 'fout');
+        .catch(function (e) {
+          console.error('BAG WFS fout:', e);
+          toonStatus('Fout bij BAG ophalen', 'fout');
+        });
+    }
+
+    // ── Stap 4: 3DBAG API (TU Delft) → gebouwhoogte ─────────────────────────
+
+    function haal3DBAG(pandId) {
+      toonStatus('Gebouwhoogte ophalen…', 'bezig');
+
+      // 3DBAG gebruikt INSPIRE-formaat: NL.IMBAG.Pand.{16-cijferig-id}
+      var id3d = pandId.indexOf('NL.IMBAG') === -1
+        ? 'NL.IMBAG.Pand.' + pandId
+        : pandId;
+
+      fetch('https://api.3dbag.nl/collections/pand/items/'
+        + encodeURIComponent(id3d) + '?f=json')
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          console.log('3DBAG response:', JSON.stringify(data).substring(0, 600));
+
+          // 3DBAG v2: { "feature": { "properties": {...} } }
+          // Fallback voor directe GeoJSON-structuur
+          var props = (data.feature && data.feature.properties)
+                   || data.properties
+                   || null;
+
+          if (props) {
+            var hDak      = props.h_dak_50p;
+            var hMaaiveld = props.h_maaiveld_50p != null
+                          ? props.h_maaiveld_50p
+                          : (props.h_maaiveld != null ? props.h_maaiveld : 0);
+
+            if (hDak != null) {
+              // Gebouwhoogte = daknok - maaiveld (beide in meters t.o.v. NAP)
+              bagData.hoogte = (hDak - hMaaiveld).toFixed(1);
+              resHoogte.textContent = bagData.hoogte + ' m';
+              toonStatus('Alle gegevens gevonden ✓', 'ok');
+            } else {
+              console.warn('h_dak_50p niet gevonden. Beschikbare velden:', JSON.stringify(props));
+              toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
+            }
+          } else {
+            toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
+          }
+
+          stuurNaarFormulier();
+        })
+        .catch(function (e) {
+          console.error('3DBAG fout:', e);
+          // Stuur BAG-data toch door, ook als 3DBAG mislukt
+          toonStatus('Gegevens gevonden (hoogte: fout bij ophalen)', 'ok');
+          stuurNaarFormulier();
         });
     }
   </script>

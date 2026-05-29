@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -92,26 +91,25 @@
       if (bestaand) adresInput.value = bestaand;
     });
 
+    // Bouwt de waarde die op de inzending/uitdraai komt te staan.
+    function maakWaarde() {
+      var bj = bagData.bouwjaar ? bagData.bouwjaar : 'onbekend';
+      var ht = bagData.hoogte   ? bagData.hoogte + ' m' : 'onbekend';
+      return 'Bouwjaar: ' + bj + '  |  Gebouwhoogte: ' + ht;
+    }
+
+    // Bij elke nieuwe waarde meteen doorgeven aan JotForm, zodat de
+    // laatst gevonden gegevens altijd in de inzending terechtkomen.
     JFCustomWidget.subscribe('submit', function () {
       JFCustomWidget.sendSubmit({
         valid: true,
-        value: bagData.bouwjaar || adresInput.value
+        value: bagData.bouwjaar || bagData.hoogte ? maakWaarde() : adresInput.value
       });
     });
 
     function toonStatus(tekst, type) {
       statusEl.textContent = tekst;
       statusEl.className   = 'status-' + type;
-    }
-
-    // Stuurt alle opgehaalde BAG-data naar de JotForm-pagina.
-    // De header-JS in JotForm vangt dit op en vult de formuliervelden in.
-    function stuurNaarFormulier() {
-      window.parent.postMessage({
-        source:   'bag-widget',
-        bouwjaar: bagData.bouwjaar || '',
-        hoogte:   bagData.hoogte   || ''
-      }, '*');
     }
 
     function reset() {
@@ -219,7 +217,7 @@
           } else {
             console.warn('Geen pandidentificatie gevonden. Beschikbare velden:', JSON.stringify(props));
             toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
-            stuurNaarFormulier();
+            JFCustomWidget.sendData({ value: maakWaarde() });
           }
         })
         .catch(function (e) {
@@ -272,13 +270,13 @@
             toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
           }
 
-          stuurNaarFormulier();
+          JFCustomWidget.sendData({ value: maakWaarde() });
         })
         .catch(function (e) {
           console.error('3DBAG fout:', e);
           // Stuur BAG-data toch door, ook als 3DBAG mislukt
           toonStatus('Gegevens gevonden (hoogte: fout bij ophalen)', 'ok');
-          stuurNaarFormulier();
+          JFCustomWidget.sendData({ value: maakWaarde() });
         });
     }
   </script>

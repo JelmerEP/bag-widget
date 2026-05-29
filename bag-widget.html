@@ -227,7 +227,8 @@
         });
     }
 
-    // ── Stap 4: 3DBAG WFS (TU Delft) → gebouwhoogte (hoogste punt) ──────────
+    // ── Stap 4: 3DBAG WFS (TU Delft) → gebouwhoogte ────────────────────────
+    // Schuin dak: daknok (b3_h_nok). Plat dak: hoogste punt (b3_h_max).
     // De items-API (api.3dbag.nl) heeft geen CORS; de WFS (data.3dbag.nl) wél.
 
     function haal3DBAG(pandId) {
@@ -252,13 +253,18 @@
           var features = (data && data.features) || [];
           console.log('3DBAG: ' + features.length + ' gebouwdeel(en) gevonden');
 
-          // Hoogste punt van het hele gebouw: max(b3_h_max - maaiveld) over alle delen
+          // Hoogste punt van het hele gebouw, per gebouwdeel bepaald:
+          //  - schuin dak (nok bekend) -> b3_h_nok (de daknok)
+          //  - plat dak (geen nok)     -> b3_h_max (het hoogste punt)
+          // Daarna het maximum over alle delen.
           var maxHoogte = null;
           features.forEach(function (f) {
             var p = f.properties;
-            if (!p || p.b3_h_max == null) return;
+            if (!p) return;
             var maaiveld = p.b3_h_maaiveld != null ? p.b3_h_maaiveld : 0;
-            var h = p.b3_h_max - maaiveld;
+            var top = (p.b3_h_nok != null) ? p.b3_h_nok : p.b3_h_max;
+            if (top == null) return;
+            var h = top - maaiveld;
             if (maxHoogte === null || h > maxHoogte) maxHoogte = h;
           });
 
@@ -267,7 +273,7 @@
             resHoogte.textContent = bagData.hoogte + ' m';
             toonStatus('Alle gegevens gevonden ✓', 'ok');
           } else {
-            console.warn('b3_h_max niet gevonden in 3DBAG-respons');
+            console.warn('Geen hoogte (b3_h_nok/b3_h_max) gevonden in 3DBAG-respons');
             toonStatus('Gegevens gevonden (hoogte niet beschikbaar)', 'ok');
           }
 

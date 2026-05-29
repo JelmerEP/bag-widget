@@ -63,8 +63,8 @@
   <div id="bag-status"></div>
 
   <script>
-    var VELD_BOUWJAAR = '18';
-    var VELD_HOOGTE   = '29';
+    var VELD_BOUWJAAR = 'input_18';
+    var VELD_HOOGTE   = 'input_29';
 
     var adresInput  = document.getElementById('bag-adres-input');
     var suggestieEl = document.getElementById('suggesties');
@@ -85,14 +85,33 @@
       statusEl.className   = 'status-' + type;
     }
 
-    function vulVeld(id, waarde) {
-      window.parent.postMessage(
-        '{"action":"setFieldValue","fieldID":"input_' + id + '","value":"' + waarde + '"}',
-        '*'
-      );
+    // Veld vullen via het parent document
+    function vulVeld(fieldId, waarde) {
+      // Methode 1: via JFCustomWidget API
+      try {
+        JFCustomWidget.setFormFieldValue(fieldId, waarde);
+        console.log('JFCustomWidget.setFormFieldValue:', fieldId, waarde);
+      } catch(e) {
+        console.log('setFormFieldValue mislukt:', e);
+      }
+
+      // Methode 2: direct DOM aanpassen via parent
+      try {
+        var el = window.parent.document.getElementById(fieldId);
+        if (el) {
+          el.value = waarde;
+          el.dispatchEvent(new Event('input',  { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log('Parent DOM ingevuld:', fieldId, waarde);
+        } else {
+          console.log('Veld niet gevonden in parent DOM:', fieldId);
+        }
+      } catch(e) {
+        console.log('Parent DOM toegang mislukt:', e);
+      }
     }
 
-    // Stap 1: suggesties ophalen via PDOK
+    // Suggesties ophalen via PDOK
     adresInput.addEventListener('input', function() {
       clearTimeout(zoekTimer);
       var q = adresInput.value.trim();
@@ -130,7 +149,7 @@
       }
     });
 
-    // Stap 2: PDOK lookup → adresseerbaarobject_id
+    // Stap 1: PDOK lookup
     function haalPdokLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
       fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
@@ -150,7 +169,7 @@
         .catch(function() { toonStatus('Fout bij opzoeken', 'fout'); });
     }
 
-    // Stap 3: verblijfsobject → pand_id via PDOK WFS
+    // Stap 2: verblijfsobject → pand_id via PDOK WFS
     function haalPandId(verblijfsobjectId) {
       toonStatus('Pand opzoeken…', 'bezig');
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
@@ -162,7 +181,6 @@
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          console.log('WFS verblijfsobject:', JSON.stringify(data).substring(0, 500));
           var features = data && data.features;
           if (!features || !features.length) {
             toonStatus('Pand niet gevonden', 'fout');
@@ -183,7 +201,7 @@
         });
     }
 
-    // Stap 4: pand → bouwjaar via PDOK WFS
+    // Stap 3: pand → bouwjaar
     function haalBouwjaar(pandId) {
       toonStatus('Bouwjaar ophalen…', 'bezig');
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
@@ -195,43 +213,20 @@
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          console.log('WFS pand:', JSON.stringify(data).substring(0, 500));
           var features = data && data.features;
           if (features && features.length) {
             var props    = features[0].properties;
             var bouwjaar = props && (props.bouwjaar || props.oorspronkelijkbouwjaar);
             console.log('Bouwjaar:', bouwjaar);
-            if (bouwjaar) vulVeld(VELD_BOUWJAAR, String(bouwjaar));
+            if (bouwjaar) {
+              vulVeld(VELD_BOUWJAAR, String(bouwjaar));
+            }
           }
-          haalGebouwhoogte(pandId);
+          toonStatus('Bouwjaar ingevuld ✓', 'ok');
         })
         .catch(function(err) {
           console.error('Bouwjaar fout:', err);
-          haalGebouwhoogte(pandId);
-        });
-    }
-
-    // Stap 5: gebouwhoogte via 3D BAG (TU Delft)
-    function haalGebouwhoogte(pandId) {
-      toonStatus('Gebouwhoogte ophalen…', 'bezig');
-      fetch('https://api.3dbag.nl/collections/pand/items/'
-        + encodeURIComponent(pandId) + '?f=json')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var props = data && data.properties;
-          console.log('3D BAG:', props ? JSON.stringify(props).substring(0, 300) : 'geen props');
-          if (!props) { toonStatus('Bouwjaar ingevuld ✓', 'ok'); return; }
-          var hoogte = (props['h_dak_50p'] !== null && props['h_dak_50p'] !== undefined)
-            ? props['h_dak_50p'] : props['h_dak_max'];
-          if (hoogte !== null && hoogte !== undefined) {
-            vulVeld(VELD_HOOGTE, String(hoogte));
-            toonStatus('Bouwjaar en gebouwhoogte ingevuld ✓', 'ok');
-          } else {
-            toonStatus('Bouwjaar ingevuld ✓', 'ok');
-          }
-        })
-        .catch(function() {
-          toonStatus('Bouwjaar ingevuld ✓', 'ok');
+          toonStatus('Fout bij bouwjaar', 'fout');
         });
     }
   </script>

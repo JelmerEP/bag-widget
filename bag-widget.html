@@ -61,46 +61,38 @@
     <div id="suggesties"></div>
   </div>
   <div id="bag-status"></div>
- 
+
   <script>
-    // ── Veld-IDs in het JotForm-formulier ──────────────────────
-    // Formaat: alleen het getal achter "input_"
     var VELD = {
       adres:    '131',
       postcode: '132',
       bouwjaar: '18',
       hoogte:   '29'
     };
- 
+
     var adresInput  = document.getElementById('bag-adres-input');
     var suggestieEl = document.getElementById('suggesties');
     var statusEl    = document.getElementById('bag-status');
     var zoekTimer   = null;
- 
-    // ── Widget initialiseren ────────────────────────────────────
+
     JFCustomWidget.subscribe('ready', function() {
       var bestaand = JFCustomWidget.getWidgetSetting('defaultValue');
       if (bestaand) adresInput.value = bestaand;
     });
- 
+
     JFCustomWidget.subscribe('submit', function() {
       JFCustomWidget.sendSubmit({ valid: true, value: adresInput.value });
     });
- 
-    // ── Status tonen ────────────────────────────────────────────
+
     function toonStatus(tekst, type) {
       statusEl.textContent = tekst;
       statusEl.className   = 'status-' + type;
     }
- 
-    // ── Veld vullen via JotForm Widget API ──────────────────────
-    // Gebruikt JFCustomWidget.setFormFieldValue — de officiële methode
-    // om vanuit een widget andere velden in het formulier te vullen.
+
     function vulVeld(id, waarde) {
       try {
         JFCustomWidget.setFormFieldValue(id, waarde);
       } catch(e) {
-        // Fallback: postMessage naar parent
         window.parent.postMessage(JSON.stringify({
           type:    'setFieldValue',
           fieldID: 'input_' + id,
@@ -108,7 +100,7 @@
         }), '*');
       }
     }
- 
+
     // ── Suggesties ophalen via PDOK ─────────────────────────────
     adresInput.addEventListener('input', function() {
       clearTimeout(zoekTimer);
@@ -116,20 +108,19 @@
       suggestieEl.style.display = 'none';
       suggestieEl.innerHTML = '';
       statusEl.className = '';
- 
+
       if (q.length < 5) return;
- 
+
       zoekTimer = setTimeout(function() {
         var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest'
           + '?q=' + encodeURIComponent(q)
           + '&fq=type:adres&rows=5';
- 
+
         fetch(url)
           .then(function(r) { return r.json(); })
           .then(function(data) {
             var docs = data && data.response && data.response.docs;
             if (!docs || docs.length === 0) return;
- 
             suggestieEl.innerHTML = '';
             docs.forEach(function(doc) {
               var item = document.createElement('div');
@@ -147,20 +138,20 @@
           .catch(function() {});
       }, 400);
     });
- 
+
     document.addEventListener('click', function(e) {
       if (!document.getElementById('zoek-wrapper').contains(e.target)) {
         suggestieEl.style.display = 'none';
       }
     });
- 
-    // ── BAG-gegevens ophalen via PDOK lookup ────────────────────
+
+    // ── Stap 1: PDOK lookup → adresseerbaarobject_id + postcode ──
     function haalBAGGegevens(pdokId, weergavenaam) {
       toonStatus('BAG gegevens ophalen…', 'bezig');
- 
+
       var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup'
         + '?id=' + encodeURIComponent(pdokId);
- 
+
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -169,19 +160,20 @@
             toonStatus('Geen gegevens gevonden in BAG', 'fout');
             return;
           }
- 
-          console.log('BAG doc:', JSON.stringify(doc));
- 
+
+          // Vul adres en postcode direct in
           vulVeld(VELD.adres,    weergavenaam);
-          vulVeld(VELD.postcode, doc.postcode  || '');
-          vulVeld(VELD.bouwjaar, doc.bouwjaar  ? String(doc.bouwjaar) : '');
- 
-          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
- 
-          if (doc.pand_id) {
-            haalGebouwhoogte(doc.pand_id);
+          vulVeld(VELD.postcode, doc.postcode || '');
+
+          // Gebruik adresseerbaarobject_id om pand op te zoeken
+          var verblijfsobjectId = doc.adresseerbaarobject_id;
+          if (verblijfsobjectId) {
+            haalPandViaVerblijfsobject(verblijfsobjectId);
+          } else if (doc.pand_id) {
+            // Soms zit pand_id er wel direct in
+            haalBouwjaarViaPand(doc.pand_id);
           } else {
-            toonStatus('Postcode en bouwjaar ingevuld ✓ (geen pand_id voor hoogte)', 'ok');
+            toonStatus('Postcode ingevuld ✓ (pand niet gevonden)', 'ok');
           }
         })
         .catch(function(err) {
@@ -189,35 +181,124 @@
           toonStatus('Fout bij verbinden met BAG', 'fout');
         });
     }
- 
-    // ── Gebouwhoogte via 3D BAG (TU Delft) ─────────────────────
+
+    // ── Stap 2: Verblijfsobject → pand_id via BAG Kadaster API ──
+    function haalPandViaVerblijfsobject(verblijfsobjectId) {
+      toonStatus('Pand opzoeken…', 'bezig');
+
+      var url = 'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/verblijfsobjecten/'
+        + verblijfsobjectId;
+
+      fetch(url, {
+        headers: {
+          'Accept': 'application/hal+json',
+          'X-Api-Key': 'l7xx1f2691f2520d487b902f4e0b2188930b'
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          console.log('Verblijfsobject:', JSON.stringify(data).substring(0, 400));
+
+          // Haal pandRef op uit de response
+          var pandRefs = data && data.verblijfsobject && data.verblijfsobject.maaktDeelUitVan;
+          if (pandRefs && pandRefs.length > 0) {
+            var pandId = pandRefs[0].identificatie;
+            if (pandId) {
+              haalBouwjaarViaPand(pandId);
+              return;
+            }
+          }
+          toonStatus('Postcode ingevuld ✓ (bouwjaar niet gevonden)', 'ok');
+        })
+        .catch(function(err) {
+          console.error('Verblijfsobject fout:', err);
+          // Fallback: probeer bouwjaar via PDOK suggest met pandidentificatie
+          haalBouwjaarViaPDOKPand(verblijfsobjectId);
+        });
+    }
+
+    // ── Fallback: pand_id zoeken via PDOK met verblijfsobject id ─
+    function haalBouwjaarViaPDOKPand(verblijfsobjectId) {
+      var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup'
+        + '?id=pnd-' + verblijfsobjectId.substring(0, 16);
+
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var doc = data && data.response && data.response.docs && data.response.docs[0];
+          if (doc && doc.bouwjaar) {
+            vulVeld(VELD.bouwjaar, String(doc.bouwjaar));
+          }
+          toonStatus('Postcode ingevuld ✓', 'ok');
+        })
+        .catch(function() {
+          toonStatus('Postcode ingevuld ✓', 'ok');
+        });
+    }
+
+    // ── Stap 3: Pand → bouwjaar + gebouwhoogte ──────────────────
+    function haalBouwjaarViaPand(pandId) {
+      toonStatus('Bouwjaar ophalen…', 'bezig');
+
+      console.log('Pand ID voor BAG:', pandId);
+
+      // Kadaster BAG API voor bouwjaar
+      var url = 'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/panden/'
+        + pandId;
+
+      fetch(url, {
+        headers: {
+          'Accept': 'application/hal+json',
+          'X-Api-Key': 'l7xx1f2691f2520d487b902f4e0b2188930b'
+        }
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          console.log('Pand data:', JSON.stringify(data).substring(0, 400));
+          var bouwjaar = data && data.pand && data.pand.oorspronkelijkBouwjaar;
+          if (bouwjaar) {
+            vulVeld(VELD.bouwjaar, String(bouwjaar));
+          }
+          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
+          // Nu gebouwhoogte ophalen via 3D BAG
+          haalGebouwhoogte(pandId);
+        })
+        .catch(function(err) {
+          console.error('Pand BAG fout:', err);
+          toonStatus('Postcode ingevuld ✓ (bouwjaar niet beschikbaar)', 'ok');
+          haalGebouwhoogte(pandId);
+        });
+    }
+
+    // ── Stap 4: Gebouwhoogte via 3D BAG (TU Delft) ──────────────
     function haalGebouwhoogte(pandId) {
       toonStatus('Gebouwhoogte ophalen…', 'bezig');
- 
+
       var url = 'https://api.3dbag.nl/collections/pand/items/'
         + encodeURIComponent(pandId) + '?f=json';
- 
+
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var props = data && data.properties;
           if (!props) {
-            toonStatus('Postcode en bouwjaar ingevuld ✓ (hoogte niet beschikbaar)', 'ok');
+            toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
             return;
           }
-          console.log('3D BAG props:', JSON.stringify(props).substring(0, 300));
- 
-          var hoogte = props['h_dak_50p'] !== null ? props['h_dak_50p'] : props['h_dak_max'];
+          console.log('3D BAG hoogte props:', JSON.stringify(props).substring(0, 300));
+          var hoogte = (props['h_dak_50p'] !== null && props['h_dak_50p'] !== undefined)
+            ? props['h_dak_50p']
+            : props['h_dak_max'];
           if (hoogte !== null && hoogte !== undefined) {
             vulVeld(VELD.hoogte, String(hoogte));
             toonStatus('Alle BAG-gegevens ingevuld ✓', 'ok');
           } else {
-            toonStatus('Postcode en bouwjaar ingevuld ✓ (hoogte niet beschikbaar)', 'ok');
+            toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
           }
         })
         .catch(function(err) {
           console.error('3D BAG fout:', err);
-          toonStatus('Postcode en bouwjaar ingevuld ✓ (hoogte niet beschikbaar)', 'ok');
+          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
         });
     }
   </script>

@@ -19,8 +19,7 @@
     #suggesties {
       position: absolute;
       top: 100%;
-      left: 0;
-      right: 0;
+      left: 0; right: 0;
       background: white;
       border: 1px solid #ccc;
       border-top: none;
@@ -48,6 +47,19 @@
     .status-ok    { background: #EAF3DE; color: #3B6D11; display: block !important; }
     .status-fout  { background: #FCEBEB; color: #A32D2D; display: block !important; }
     .status-bezig { background: #E6F1FB; color: #185FA5; display: block !important; }
+    #bag-resultaat {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+    #bag-resultaat table { width: 100%; border-collapse: collapse; }
+    #bag-resultaat td { padding: 3px 6px; }
+    #bag-resultaat td:first-child { color: #666; width: 120px; }
+    #bag-resultaat td:last-child { font-weight: bold; }
   </style>
 </head>
 <body>
@@ -61,54 +73,38 @@
     <div id="suggesties"></div>
   </div>
   <div id="bag-status"></div>
+  <div id="bag-resultaat">
+    <table>
+      <tr><td>Bouwjaar:</td><td id="res-bouwjaar">—</td></tr>
+      <tr><td>Gebouwhoogte:</td><td id="res-hoogte">—</td></tr>
+    </table>
+  </div>
 
   <script>
-    var VELD_BOUWJAAR = 'input_18';
-    var VELD_HOOGTE   = 'input_29';
-
-    var adresInput  = document.getElementById('bag-adres-input');
-    var suggestieEl = document.getElementById('suggesties');
-    var statusEl    = document.getElementById('bag-status');
-    var zoekTimer   = null;
+    var adresInput   = document.getElementById('bag-adres-input');
+    var suggestieEl  = document.getElementById('suggesties');
+    var statusEl     = document.getElementById('bag-status');
+    var resultaatEl  = document.getElementById('bag-resultaat');
+    var resBouwjaar  = document.getElementById('res-bouwjaar');
+    var resHoogte    = document.getElementById('res-hoogte');
+    var zoekTimer    = null;
+    var gevondenData = { bouwjaar: '', hoogte: '' };
 
     JFCustomWidget.subscribe('ready', function() {
       var bestaand = JFCustomWidget.getWidgetSetting('defaultValue');
       if (bestaand) adresInput.value = bestaand;
     });
 
+    // Bij verzenden: stuur bouwjaar|hoogte als widget-waarde
+    // Jotform conditional logic kan dit uitlezen
     JFCustomWidget.subscribe('submit', function() {
-      JFCustomWidget.sendSubmit({ valid: true, value: adresInput.value });
+      var waarde = gevondenData.bouwjaar + '|' + gevondenData.hoogte;
+      JFCustomWidget.sendSubmit({ valid: true, value: waarde });
     });
 
     function toonStatus(tekst, type) {
       statusEl.textContent = tekst;
       statusEl.className   = 'status-' + type;
-    }
-
-    // Veld vullen via het parent document
-    function vulVeld(fieldId, waarde) {
-      // Methode 1: via JFCustomWidget API
-      try {
-        JFCustomWidget.setFormFieldValue(fieldId, waarde);
-        console.log('JFCustomWidget.setFormFieldValue:', fieldId, waarde);
-      } catch(e) {
-        console.log('setFormFieldValue mislukt:', e);
-      }
-
-      // Methode 2: direct DOM aanpassen via parent
-      try {
-        var el = window.parent.document.getElementById(fieldId);
-        if (el) {
-          el.value = waarde;
-          el.dispatchEvent(new Event('input',  { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          console.log('Parent DOM ingevuld:', fieldId, waarde);
-        } else {
-          console.log('Veld niet gevonden in parent DOM:', fieldId);
-        }
-      } catch(e) {
-        console.log('Parent DOM toegang mislukt:', e);
-      }
     }
 
     // Suggesties ophalen via PDOK
@@ -118,6 +114,7 @@
       suggestieEl.style.display = 'none';
       suggestieEl.innerHTML = '';
       statusEl.className = '';
+      resultaatEl.style.display = 'none';
       if (q.length < 5) return;
 
       zoekTimer = setTimeout(function() {
@@ -149,7 +146,6 @@
       }
     });
 
-    // Stap 1: PDOK lookup
     function haalPdokLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
       fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
@@ -158,18 +154,11 @@
         .then(function(data) {
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
-          var verblijfsobjectId = doc.adresseerbaarobject_id;
-          console.log('verblijfsobjectId:', verblijfsobjectId);
-          if (verblijfsobjectId) {
-            haalPandId(verblijfsobjectId);
-          } else {
-            toonStatus('Pand niet gevonden', 'fout');
-          }
+          haalPandId(doc.adresseerbaarobject_id);
         })
         .catch(function() { toonStatus('Fout bij opzoeken', 'fout'); });
     }
 
-    // Stap 2: verblijfsobject → pand_id via PDOK WFS
     function haalPandId(verblijfsobjectId) {
       toonStatus('Pand opzoeken…', 'bezig');
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
@@ -177,31 +166,18 @@
         + '&typeNames=bag:verblijfsobject&count=1'
         + '&outputFormat=application/json'
         + "&CQL_FILTER=identificatie='" + verblijfsobjectId + "'";
-
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var features = data && data.features;
-          if (!features || !features.length) {
-            toonStatus('Pand niet gevonden', 'fout');
-            return;
-          }
-          var props  = features[0].properties;
-          var pandId = props && (props.pandidentificatie || props.pand_identificatie);
-          console.log('pandId:', pandId);
-          if (pandId) {
-            haalBouwjaar(pandId);
-          } else {
-            toonStatus('Pand niet gevonden', 'fout');
-          }
+          if (!features || !features.length) { toonStatus('Pand niet gevonden', 'fout'); return; }
+          var pandId = features[0].properties && (features[0].properties.pandidentificatie || features[0].properties.pand_identificatie);
+          if (pandId) haalBouwjaar(pandId);
+          else toonStatus('Pand niet gevonden', 'fout');
         })
-        .catch(function(err) {
-          console.error('WFS fout:', err);
-          toonStatus('Fout bij ophalen pand', 'fout');
-        });
+        .catch(function() { toonStatus('Fout bij ophalen pand', 'fout'); });
     }
 
-    // Stap 3: pand → bouwjaar
     function haalBouwjaar(pandId) {
       toonStatus('Bouwjaar ophalen…', 'bezig');
       var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
@@ -209,25 +185,23 @@
         + '&typeNames=bag:pand&count=1'
         + '&outputFormat=application/json'
         + "&CQL_FILTER=identificatie='" + pandId + "'";
-
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
           var features = data && data.features;
           if (features && features.length) {
-            var props    = features[0].properties;
-            var bouwjaar = props && (props.bouwjaar || props.oorspronkelijkbouwjaar);
-            console.log('Bouwjaar:', bouwjaar);
+            var bouwjaar = features[0].properties && (features[0].properties.bouwjaar || features[0].properties.oorspronkelijkbouwjaar);
             if (bouwjaar) {
-              vulVeld(VELD_BOUWJAAR, String(bouwjaar));
+              gevondenData.bouwjaar = String(bouwjaar);
+              resBouwjaar.textContent = bouwjaar;
+              // Stuur waarde direct naar widget veld zodat conditional logic het kan uitlezen
+              JFCustomWidget.sendSubmit({ valid: true, value: gevondenData.bouwjaar + '|' + gevondenData.hoogte });
             }
           }
-          toonStatus('Bouwjaar ingevuld ✓', 'ok');
+          resultaatEl.style.display = 'block';
+          toonStatus('Bouwjaar gevonden ✓', 'ok');
         })
-        .catch(function(err) {
-          console.error('Bouwjaar fout:', err);
-          toonStatus('Fout bij bouwjaar', 'fout');
-        });
+        .catch(function() { toonStatus('Fout bij bouwjaar', 'fout'); });
     }
   </script>
 </body>

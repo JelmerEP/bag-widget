@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="nl">
 <head>
@@ -19,8 +18,7 @@
     #bag-adres-input:focus { border-color: #0099e5; }
     #suggesties {
       position: absolute;
-      top: 100%;
-      left: 0; right: 0;
+      top: 100%; left: 0; right: 0;
       background: white;
       border: 1px solid #ccc;
       border-top: none;
@@ -57,7 +55,6 @@
       font-size: 13px;
       display: none;
     }
-    #bag-resultaat table { width: 100%; border-collapse: collapse; }
     #bag-resultaat td { padding: 3px 6px; }
     #bag-resultaat td:first-child { color: #666; width: 120px; }
     #bag-resultaat td:last-child { font-weight: bold; }
@@ -65,12 +62,9 @@
 </head>
 <body>
   <div id="zoek-wrapper">
-    <input
-      type="text"
-      id="bag-adres-input"
+    <input type="text" id="bag-adres-input"
       placeholder="Typ een adres, bijv. Dorpsstraat 12 Amsterdam"
-      autocomplete="off"
-    />
+      autocomplete="off"/>
     <div id="suggesties"></div>
   </div>
   <div id="bag-status"></div>
@@ -103,7 +97,7 @@
       statusEl.className   = 'status-' + type;
     }
 
-    // Suggesties ophalen via PDOK
+    // Reset bij nieuw adres
     adresInput.addEventListener('input', function() {
       clearTimeout(zoekTimer);
       var q = adresInput.value.trim();
@@ -130,7 +124,7 @@
               item.addEventListener('click', function() {
                 adresInput.value          = doc.weergavenaam;
                 suggestieEl.style.display = 'none';
-                haalPdokLookup(doc.id);
+                haalLookup(doc.id);
               });
               suggestieEl.appendChild(item);
             });
@@ -145,10 +139,10 @@
       }
     });
 
-    // Stap 1: PDOK lookup → adresseerbaarobject_id
-    function haalPdokLookup(pdokId) {
+    // Stap 1: PDOK lookup → coördinaten ophalen
+    function haalLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
-      console.log('Stap 1 - PDOK lookup id:', pdokId);
+      console.log('Stap 1 - lookup id:', pdokId);
 
       fetch('https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup?id='
         + encodeURIComponent(pdokId))
@@ -157,15 +151,18 @@
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
 
-          var verblijfsobjectId = doc.adresseerbaarobject_id;
-          if (Array.isArray(verblijfsobjectId)) verblijfsobjectId = verblijfsobjectId[0];
-          console.log('Stap 1 - verblijfsobjectId:', verblijfsobjectId);
+          // Haal coordinaten op uit centroide_ll: "POINT(lon lat)"
+          var centroide = doc.centroide_ll;
+          console.log('Stap 1 - centroide_ll:', centroide);
 
-          if (verblijfsobjectId) {
-            haalVerblijfsobject(verblijfsobjectId);
-          } else {
-            toonStatus('Geen verblijfsobject gevonden', 'fout');
-          }
+          var match = centroide && centroide.match(/POINT\(([^ ]+) ([^ ]+)\)/);
+          if (!match) { toonStatus('Coördinaten niet gevonden', 'fout'); return; }
+
+          var lon = parseFloat(match[1]);
+          var lat = parseFloat(match[2]);
+          console.log('Stap 1 - lon:', lon, 'lat:', lat);
+
+          haalVerblijfsobjectViaBBOX(lon, lat);
         })
         .catch(function(e) {
           console.error('Stap 1 fout:', e);
@@ -173,78 +170,59 @@
         });
     }
 
-    // Stap 2: verblijfsobject via PDOK OGC API Features (geen WFS!)
-    function haalVerblijfsobject(verblijfsobjectId) {
+    // Stap 2: WFS BBOX query — geen CQL_FILTER, werkt altijd
+    function haalVerblijfsobjectViaBBOX(lon, lat) {
       toonStatus('Pand opzoeken…', 'bezig');
-      // OGC API Features gebruikt query parameter - geen CQL filter nodig
-      var url = 'https://service.pdok.nl/lv/bag/ogc/v1_0/collections/verblijfsobjecten/items'
-        + '?identificatie=' + encodeURIComponent(verblijfsobjectId)
-        + '&f=json&limit=1&_=' + Date.now();
 
-      console.log('Stap 2 - OGC verblijfsobject URL:', url);
+      // Kleine bounding box van ~10 meter rondom het punt
+      var delta = 0.0001;
+      var minx  = (lon - delta).toFixed(7);
+      var miny  = (lat - delta).toFixed(7);
+      var maxx  = (lon + delta).toFixed(7);
+      var maxy  = (lat + delta).toFixed(7);
+      var bbox  = minx + ',' + miny + ',' + maxx + ',' + maxy;
 
-      fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          console.log('Stap 2 - OGC result:', JSON.stringify(data).substring(0, 500));
-          var features = data && data.features;
-          if (!features || !features.length) {
-            toonStatus('Verblijfsobject niet gevonden', 'fout');
-            return;
-          }
-          var props  = features[0].properties;
-          var pandId = props && (props.pandidentificatie || props.pand_identificatie);
-          if (Array.isArray(pandId)) pandId = pandId[0];
-          console.log('Stap 2 - pandId:', pandId);
-          console.log('Stap 2 - alle properties:', JSON.stringify(props));
+      var url = 'https://service.pdok.nl/lv/bag/wfs/v2_0'
+        + '?service=WFS&version=2.0.0&request=GetFeature'
+        + '&typeNames=bag:verblijfsobject'
+        + '&count=5'
+        + '&outputFormat=application/json'
+        + '&BBOX=' + bbox + ',urn:ogc:def:crs:EPSG::4326'
+        + '&_=' + Date.now();
 
-          if (pandId) {
-            haalPand(String(pandId));
-          } else {
-            toonStatus('Pand-ID niet gevonden', 'fout');
-          }
-        })
-        .catch(function(e) {
-          console.error('Stap 2 fout:', e);
-          toonStatus('Fout bij verblijfsobject ophalen', 'fout');
-        });
-    }
-
-    // Stap 3: pand via PDOK OGC API Features → bouwjaar
-    function haalPand(pandId) {
-      toonStatus('Bouwjaar ophalen…', 'bezig');
-      var url = 'https://service.pdok.nl/lv/bag/ogc/v1_0/collections/panden/items'
-        + '?identificatie=' + encodeURIComponent(pandId)
-        + '&f=json&limit=1&_=' + Date.now();
-
-      console.log('Stap 3 - OGC pand URL:', url);
+      console.log('Stap 2 - BBOX URL:', url);
 
       fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          console.log('Stap 3 - OGC pand result:', JSON.stringify(data).substring(0, 500));
+          console.log('Stap 2 - WFS result:', JSON.stringify(data).substring(0, 600));
           var features = data && data.features;
           if (!features || !features.length) {
             toonStatus('Pand niet gevonden', 'fout');
             return;
           }
+
+          // Pak eerste verblijfsobject, log alle properties
           var props    = features[0].properties;
-          var bouwjaar = props && (props.bouwjaar || props.oorspronkelijkbouwjaar);
-          console.log('Stap 3 - bouwjaar:', bouwjaar, 'voor pandId:', pandId);
+          console.log('Stap 2 - properties:', JSON.stringify(props));
+
+          var bouwjaar = props.bouwjaar;
+          console.log('Stap 2 - bouwjaar:', bouwjaar);
+          console.log('Stap 2 - postcode:', props.postcode, 'huisnummer:', props.huisnummer);
 
           if (bouwjaar) {
             gevondenBouwjaar = String(bouwjaar);
             resBouwjaar.textContent = bouwjaar;
             resultaatEl.style.display = 'block';
             toonStatus('Bouwjaar gevonden ✓', 'ok');
-            // Stuur waarde naar Jotform via sendSubmit
+            // Stuur waarde als widget-value zodat conditional logic het kan kopiëren
             JFCustomWidget.sendSubmit({ valid: true, value: gevondenBouwjaar });
           } else {
             toonStatus('Bouwjaar niet beschikbaar', 'fout');
           }
         })
         .catch(function(e) {
-          console.error('Stap 3 fout:', e);
+          console.error('Stap 2 fout:', e);
           toonStatus('Fout bij pand ophalen', 'fout');
         });
     }

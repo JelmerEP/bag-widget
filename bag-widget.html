@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://js.jotform.com/JotFormCustomWidget.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; padding: 8px 0; }
+    #zoek-wrapper { position: relative; }
+    #bag-adres-input {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      outline: none;
+    }
+    #bag-adres-input:focus { border-color: #0099e5; }
+    #suggesties {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #ccc;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      z-index: 9999;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+    }
+    .suggestie-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .suggestie-item:hover { background: #f5f5f5; }
+    #bag-status {
+      margin-top: 6px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      display: none;
+    }
+    .status-ok   { background: #EAF3DE; color: #3B6D11; display: block !important; }
+    .status-fout { background: #FCEBEB; color: #A32D2D; display: block !important; }
+    .status-bezig { background: #E6F1FB; color: #185FA5; display: block !important; }
+  </style>
+</head>
+<body>
+  <div id="zoek-wrapper">
+    <input
+      type="text"
+      id="bag-adres-input"
+      placeholder="Typ een adres, bijv. Dorpsstraat 12 Amsterdam"
+      autocomplete="off"
+    />
+    <div id="suggesties"></div>
+  </div>
+  <div id="bag-status"></div>
+
+  <script>
+    // ── Veld-IDs in het JotForm-formulier ──────────────────────
+    var VELD = {
+      adres:    'input_131',
+      postcode: 'input_132',
+      bouwjaar: 'input_18',
+      hoogte:   'input_29'
+    };
+
+    // ── Elementen ───────────────────────────────────────────────
+    var adresInput  = document.getElementById('bag-adres-input');
+    var suggestieEl = document.getElementById('suggesties');
+    var statusEl    = document.getElementById('bag-status');
+    var zoekTimer   = null;
+
+    // ── Widget initialiseren ────────────────────────────────────
+    JFCustomWidget.subscribe('ready', function() {
+      var bestaandeWaarde = JFCustomWidget.getWidgetSetting('defaultValue');
+      if (bestaandeWaarde) adresInput.value = bestaandeWaarde;
+    });
+
+    // Stuur de ingetypte waarde mee bij formulierverzending
+    JFCustomWidget.subscribe('submit', function() {
+      JFCustomWidget.sendSubmit({ valid: true, value: adresInput.value });
+    });
+
+    // ── Status tonen ────────────────────────────────────────────
+    function toonStatus(tekst, type) {
+      statusEl.textContent = tekst;
+      statusEl.className = 'status-' + type;
+    }
+
+    function verbergStatus() {
+      statusEl.className = '';
+      statusEl.textContent = '';
+    }
+
+    // ── Veld in hoofdformulier vullen via postMessage ───────────
+    function vulVeld(id, waarde) {
+      window.parent.postMessage(JSON.stringify({
+        action: 'setFieldValue',
+        fieldID: id,
+        value: waarde
+      }), '*');
+    }
+
+    // ── Suggesties ophalen via PDOK ─────────────────────────────
+    adresInput.addEventListener('input', function() {
+      clearTimeout(zoekTimer);
+      var q = adresInput.value.trim();
+      suggestieEl.style.display = 'none';
+      suggestieEl.innerHTML = '';
+      verbergStatus();
+
+      if (q.length < 5) return;
+
+      zoekTimer = setTimeout(function() {
+        var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest'
+          + '?q=' + encodeURIComponent(q)
+          + '&fq=type:adres&rows=5';
+
+        fetch(url)
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            var docs = data && data.response && data.response.docs;
+            if (!docs || docs.length === 0) return;
+
+            suggestieEl.innerHTML = '';
+            docs.forEach(function(doc) {
+              var item = document.createElement('div');
+              item.className = 'suggestie-item';
+              item.textContent = doc.weergavenaam;
+              item.addEventListener('click', function() {
+                adresInput.value = doc.weergavenaam;
+                suggestieEl.style.display = 'none';
+                haalBAGGegevens(doc.id, doc.weergavenaam);
+              });
+              suggestieEl.appendChild(item);
+            });
+            suggestieEl.style.display = 'block';
+          })
+          .catch(function() {});
+      }, 400);
+    });
+
+    // Klik buiten suggesties → sluit lijst
+    document.addEventListener('click', function(e) {
+      if (!document.getElementById('zoek-wrapper').contains(e.target)) {
+        suggestieEl.style.display = 'none';
+      }
+    });
+
+    // ── BAG-gegevens ophalen via PDOK lookup ────────────────────
+    function haalBAGGegevens(pdokId, weergavenaam) {
+      toonStatus('BAG gegevens ophalen…', 'bezig');
+
+      var url = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup'
+        + '?id=' + encodeURIComponent(pdokId);
+
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var doc = data && data.response && data.response.docs && data.response.docs[0];
+          if (!doc) {
+            toonStatus('Geen gegevens gevonden in BAG', 'fout');
+            return;
+          }
+
+          // Adres en postcode vullen
+          vulVeld(VELD.adres,    weergavenaam);
+          vulVeld(VELD.postcode, doc.postcode  || '');
+          vulVeld(VELD.bouwjaar, doc.bouwjaar  ? String(doc.bouwjaar) : '');
+
+          toonStatus('Postcode en bouwjaar ingevuld ✓', 'ok');
+
+          // Gebouwhoogte ophalen via 3D BAG
+          if (doc.pand_id) {
+            haalGebouwhoogte(doc.pand_id);
+          }
+        })
+        .catch(function() {
+          toonStatus('Fout bij verbinden met BAG', 'fout');
+        });
+    }
+
+    // ── Gebouwhoogte via 3D BAG (TU Delft) ─────────────────────
+    function haalGebouwhoogte(pandId) {
+      var url = 'https://api.3dbag.nl/collections/pand/items/'
+        + encodeURIComponent(pandId) + '?f=json';
+
+      fetch(url)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var props = data && data.properties;
+          if (!props) return;
+          var hoogte = props['h_dak_50p'] || props['h_dak_max'];
+          if (hoogte !== null && hoogte !== undefined) {
+            vulVeld(VELD.hoogte, String(hoogte));
+            toonStatus('Alle BAG-gegevens ingevuld ✓', 'ok');
+          }
+        })
+        .catch(function() {
+          // Hoogte ophalen mislukt, rest is al ingevuld
+        });
+    }
+  </script>
+</body>
+</html>

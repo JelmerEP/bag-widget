@@ -57,7 +57,7 @@
       display: none;
     }
     #bag-resultaat table { width: 100%; }
-    #bag-resultaat td { padding: 3px 6px; }
+    #bag-resultaat td { padding: 3px 6px; vertical-align: top; }
     #bag-resultaat td:first-child { color: #666; width: 120px; }
     #bag-resultaat td:last-child { font-weight: bold; }
   </style>
@@ -72,6 +72,7 @@
   <div id="bag-status"></div>
   <div id="bag-resultaat">
     <table>
+      <tr><td>Adres:</td>        <td id="res-adres">—</td></tr>
       <tr><td>Bouwjaar:</td>     <td id="res-bouwjaar">—</td></tr>
       <tr><td>Gebouwhoogte:</td> <td id="res-hoogte">—</td></tr>
     </table>
@@ -82,6 +83,7 @@
     var suggestieEl = document.getElementById('suggesties');
     var statusEl    = document.getElementById('bag-status');
     var resultaatEl = document.getElementById('bag-resultaat');
+    var resAdres    = document.getElementById('res-adres');
     var resBouwjaar = document.getElementById('res-bouwjaar');
     var resHoogte   = document.getElementById('res-hoogte');
     var zoekTimer   = null;
@@ -92,17 +94,26 @@
       if (bestaand) adresInput.value = bestaand;
     });
 
+    // Adres in het format: "straatnaam huisnummer, postcode plaats"
+    function maakAdres() {
+      var straatHnr = ((bagData.straat || '') + ' ' + (bagData.huisnr || '')).trim();
+      var pcPlaats  = ((bagData.postcode || '') + ' ' + (bagData.plaats || '')).trim();
+      if (straatHnr && pcPlaats) return straatHnr + ', ' + pcPlaats;
+      return straatHnr || pcPlaats || '';
+    }
+
     // Bouwt de waarde die op de inzending/uitdraai komt te staan.
     function maakWaarde() {
-      var bj = bagData.bouwjaar ? bagData.bouwjaar : 'onbekend';
-      var ht = bagData.hoogte   ? bagData.hoogte + ' m' : 'onbekend';
-      return 'Bouwjaar: ' + bj + '  |  Gebouwhoogte: ' + ht;
+      var adres = maakAdres() || 'onbekend';
+      var bj    = bagData.bouwjaar ? bagData.bouwjaar : 'onbekend';
+      var ht    = bagData.hoogte   ? bagData.hoogte + ' m' : 'onbekend';
+      return 'Adres: ' + adres + '  |  Bouwjaar: ' + bj + '  |  Gebouwhoogte: ' + ht;
     }
 
     JFCustomWidget.subscribe('submit', function () {
       JFCustomWidget.sendSubmit({
         valid: true,
-        value: bagData.bouwjaar || bagData.hoogte ? maakWaarde() : adresInput.value
+        value: (bagData.bouwjaar || bagData.hoogte || maakAdres()) ? maakWaarde() : adresInput.value
       });
     });
 
@@ -116,6 +127,7 @@
       suggestieEl.innerHTML     = '';
       statusEl.className        = '';
       resultaatEl.style.display = 'none';
+      resAdres.textContent      = '—';
       resBouwjaar.textContent   = '—';
       resHoogte.textContent     = '—';
       bagData = {};
@@ -159,7 +171,7 @@
       }
     });
 
-    // ── Stap 2: PDOK lookup → RD-coördinaten (EPSG:28992) ───────────────────
+    // ── Stap 2: PDOK lookup → adresgegevens + RD-coördinaten (EPSG:28992) ───
 
     function haalLookup(pdokId) {
       toonStatus('Adres opzoeken…', 'bezig');
@@ -169,6 +181,13 @@
         .then(function (data) {
           var doc = data && data.response && data.response.docs && data.response.docs[0];
           if (!doc) { toonStatus('Adres niet gevonden', 'fout'); return; }
+
+          // Adresgegevens vastleggen uit het geselecteerde adres (niet uit de BBOX)
+          bagData.straat   = doc.straatnaam     || '';
+          bagData.huisnr   = doc.huis_nlt       || '';  // "192E", "2a" — incl. letter/toevoeging
+          bagData.postcode = doc.postcode       || '';
+          bagData.plaats   = doc.woonplaatsnaam || '';
+          resAdres.textContent = maakAdres() || '—';
 
           // RD-coördinaten (EPSG:28992) gebruiken — geen asorde-verwarring zoals bij lat/lon
           var match = doc.centroide_rd && doc.centroide_rd.match(/POINT\(([^ ]+) ([^ ]+)\)/);

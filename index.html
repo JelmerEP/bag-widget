@@ -400,16 +400,20 @@ const genreGrad = g => GENRE_GRADIENT[g] || 'linear-gradient(160deg,#434343,#000
 const $ = id => document.getElementById(id);
 let room = null, isHost = false, roomCode = '';
 let myName = '';
-const players = new Map();            // peerId -> name (incl. self)
+const roster = new Map();             // peerId -> name (incl. self) via gossip
 let selectedPlatforms = new Set(['netflix','prime','hbomax','disney']);
 let threshold = 0;                    // 0 = "iedereen"
-const myLikes = new Set();            // film ids
-const peerLikes = new Map();          // peerId -> Set of ids
-const shownMatches = new Set();       // film ids already celebrated
-let deck = [];                        // ordered film objects for this game
+const myLikes = new Set();            // film ids die ik heb geliket
+const likesByPeer = new Map();        // peerId -> { v:versie, ids:Set } (incl. self)
+let myLikesVersion = 0;
+const shownMatches = new Set();       // film ids al gevierd
+let deck = [];                        // geordende films voor deze game
 let deckIndex = 0;
 let started = false;
-let sendName, sendLikes, sendStart, sendStarted;
+let startPayload = null;              // host bewaart dit om te kunnen herhalen
+let gotStart = false;
+let sendRoster, sendLikes, sendStart;
+let announceTimer = null, hiddenSince = 0;
 
 /* ----------------------------- Helpers ----------------------------- */
 function show(screenId) {
@@ -438,63 +442,106 @@ function seededShuffle(arr, seed) {
   for (let i=a.length-1;i>0;i--) { const j = Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   return a;
 }
-const effThreshold = () => threshold && threshold > 0 ? threshold : players.size;
+const effThreshold = () => threshold && threshold > 0 ? threshold : roster.size;
 
-/* ----------------------------- Networking ----------------------------- */
+/* ----------------------------- Networking ----------------------------- *
+ * Gossip-relay: elk bericht (roster/likes/start) wordt doorgestuurd naar je
+ * eigen peers. Zo zien en matchen ook spelers die niet direct met elkaar
+ * verbonden zijn elkaar, zolang de groep via de host samenhangt. */
 function connect(code) {
   roomCode = code;
-  room = joinRoom({ appId: 'filmmatch-nl-v1' }, code);
-  players.set(selfId, myName);
+  room = joinRoom({
+    appId: 'filmmatch-nl-v1',
+    relayUrls: [
+      'wss://relay.damus.io',
+      'wss://nos.lol',
+      'wss://relay.nostr.band',
+      'wss://nostr.mom',
+      'wss://relay.snort.social'
+    ]
+  }, code);
 
-  [sendName]    = room.makeAction('name');
-  [sendLikes]   = room.makeAction('likes');
-  [sendStart]   = room.makeAction('start');
-  [sendStarted] = room.makeAction('go');
+  // ikzelf sta in de roster + likes
+  roster.set(selfId, myName);
+  likesByPeer.set(selfId, { v: myLikesVersion, ids: new Set(myLikes) });
 
-  const [, getName]    = room.makeAction('name');
-  const [, getLikes]   = room.makeAction('likes');
-  const [, getStart]   = room.makeAction('start');
-  const [, getStarted] = room.makeAction('go');
+  [sendRoster] = room.makeAction('roster');
+  [sendLikes]  = room.makeAction('likes');
+  [sendStart]  = room.makeAction('start');
+  const [, getRoster] = room.makeAction('roster');
+  const [, getLikes]  = room.makeAction('likes');
+  const [, getStart]  = room.makeAction('start');
 
-  getName((name, peer) => { players.set(peer, String(name).slice(0,14)); renderLobby(); updateConn(); });
+  getRoster((msg) => {
+    if (!msg || !msg.id) return;
+    if (roster.get(msg.id) === msg.name) return;     // al bekend -> stop (geen loop)
+    roster.set(msg.id, String(msg.name).slice(0, 14));
+    renderLobby(); updateConn();
+    sendRoster(msg);                                 // doorsturen naar mijn peers
+  });
 
-  getLikes((arr, peer) => {
-    peerLikes.set(peer, new Set(arr));
+  getLikes((msg) => {
+    if (!msg || !msg.id) return;
+    const cur = likesByPeer.get(msg.id);
+    if (cur && cur.v >= msg.v) return;               // niet nieuwer -> stop
+    likesByPeer.set(msg.id, { v: msg.v, ids: new Set(msg.ids) });
     recomputeMatches();
+    sendLikes(msg);                                  // doorsturen
   });
 
-  getStart((cfg, peer) => {
-    // alleen host stuurt dit; ontvang dek + drempel
-    selectedPlatforms = new Set(cfg.platforms);
-    threshold = cfg.threshold || 0;
-    deck = cfg.ids.map(id => FILMS.find(f => f.id === id)).filter(Boolean);
-    deckIndex = 0;
-    startGame();
+  getStart((cfg) => {
+    if (!startPayload) startPayload = cfg;
+    applyStart(cfg);
+    sendStart(cfg);                                  // doorsturen
   });
-
-  getStarted((_, peer) => { /* reserved */ });
 
   room.onPeerJoin(peer => {
-    sendName(myName);
-    // deel mijn likes zodat tellingen kloppen
-    sendLikes([...myLikes]);
-    // host herstuurt config zodat laat-joiners het dek krijgen
-    if (isHost && started) sendStart(buildStartPayload());
-    updateConn();
-    renderLobby();
+    // stuur alles wat ik weet direct naar de nieuwe peer (snel inhalen)
+    for (const [id, name] of roster) sendRoster({ id, name }, peer);
+    for (const [id, info] of likesByPeer) sendLikes({ id, v: info.v, ids: [...info.ids] }, peer);
+    if (startPayload) sendStart(startPayload, peer);
+    updateConn(); renderLobby();
   });
+
   room.onPeerLeave(peer => {
-    players.delete(peer);
-    peerLikes.delete(peer);
+    roster.delete(peer);
+    likesByPeer.delete(peer);
     renderLobby(); updateConn(); recomputeMatches();
   });
 
-  // kondig mezelf aan
-  setTimeout(() => sendName(myName), 300);
+  // direct + periodiek aankondigen (helpt convergentie en herverbinden)
+  announce();
+  clearInterval(announceTimer);
+  announceTimer = setInterval(announce, 4000);
+}
+
+function announce() {
+  if (!room) return;
+  sendRoster({ id: selfId, name: myName });
+  const mine = likesByPeer.get(selfId);
+  if (mine) sendLikes({ id: selfId, v: mine.v, ids: [...mine.ids] });
+  if (isHost && startPayload) sendStart(startPayload);
+}
+
+function bumpMyLikes() {
+  myLikesVersion++;
+  likesByPeer.set(selfId, { v: myLikesVersion, ids: new Set(myLikes) });
+  if (sendLikes) sendLikes({ id: selfId, v: myLikesVersion, ids: [...myLikes] });
+  recomputeMatches();
+}
+
+function applyStart(cfg) {
+  if (gotStart) return;          // voorkom opnieuw starten / dek-reset
+  gotStart = true;
+  selectedPlatforms = new Set(cfg.platforms);
+  threshold = cfg.threshold || 0;
+  deck = cfg.ids.map(id => FILMS.find(f => f.id === id)).filter(Boolean);
+  deckIndex = 0;
+  startGame();
 }
 
 function updateConn() {
-  const n = players.size;
+  const n = roster.size;
   const dot = $('connDot'), txt = $('connText');
   if (n > 1) { dot.classList.remove('off'); txt.textContent = `Verbonden — ${n} spelers`; }
   else { dot.classList.add('off'); txt.textContent = 'Wachten op spelers…'; }
@@ -503,10 +550,10 @@ function updateConn() {
 /* ----------------------------- Lobby UI ----------------------------- */
 function renderLobby() {
   $('roomCodeView').textContent = roomCode;
-  $('playerCount').textContent = `(${players.size})`;
+  $('playerCount').textContent = `(${roster.size})`;
   const list = $('playerList'); list.innerHTML = '';
   // host (room-maker) eerst weergeven is lastig P2P; markeer self
-  for (const [pid, name] of players) {
+  for (const [pid, name] of roster) {
     const li = document.createElement('li');
     const av = document.createElement('div');
     av.className = 'avatar'; av.style.background = colorFor(name); av.textContent = initials(name);
@@ -519,7 +566,7 @@ function renderLobby() {
   renderThresholds();
   renderPlatformViews();
   // start alleen voor host, minimaal 2 spelers
-  $('startBtn').disabled = !(isHost && players.size >= 2 && selectedPlatforms.size > 0);
+  $('startBtn').disabled = !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
   $('startBtn').style.display = isHost ? '' : 'none';
 }
 
@@ -548,7 +595,7 @@ function renderPlatformViews() {
 }
 function renderThresholds() {
   const wrap = $('thresholdPicker'); if (!wrap) return; wrap.innerHTML = '';
-  const n = Math.max(players.size, 2);
+  const n = Math.max(roster.size, 2);
   const mk = (val, label) => {
     const b = document.createElement('button');
     b.textContent = label;
@@ -570,13 +617,10 @@ function buildStartPayload() {
 
 function hostStart() {
   if (!isHost) return;
-  if (players.size < 2) { toast('Wacht op minstens 1 vriend 🙂'); return; }
-  const payload = buildStartPayload();
-  selectedPlatforms = new Set(payload.platforms);
-  deck = payload.ids.map(id => FILMS.find(f=>f.id===id)).filter(Boolean);
-  deckIndex = 0;
-  sendStart(payload);
-  startGame();
+  if (roster.size < 2) { toast('Wacht op minstens 1 vriend 🙂'); return; }
+  startPayload = buildStartPayload();
+  sendStart(startPayload);
+  applyStart(startPayload);
 }
 
 function startGame() {
@@ -672,7 +716,7 @@ function swipe(card, liked) {
   card.style.opacity = '0';
   if (card._cleanup) card._cleanup();
   const film = deck[deckIndex];
-  if (liked && film) { myLikes.add(film.id); sendLikes && sendLikes([...myLikes]); recomputeMatches(); }
+  if (liked && film) { myLikes.add(film.id); bumpMyLikes(); }
   deckIndex++;
   setTimeout(renderDeck, 220);
 }
@@ -686,8 +730,8 @@ function programmaticSwipe(liked) {
 
 /* ----------------------------- Matching ----------------------------- */
 function likeCount(id) {
-  let c = myLikes.has(id) ? 1 : 0;
-  for (const set of peerLikes.values()) if (set.has(id)) c++;
+  let c = 0;
+  for (const info of likesByPeer.values()) if (info.ids.has(id)) c++;
   return c;
 }
 function recomputeMatches() {
@@ -790,6 +834,21 @@ $('joinCode').addEventListener('input', e => { e.target.value = e.target.value.t
 
 // voorkom per ongeluk verlaten tijdens spel
 window.addEventListener('beforeunload', e => { if (started) { e.preventDefault(); e.returnValue = ''; } });
+
+// Mobiel: bij backgrounden vallen P2P-verbindingen weg. Bij terugkomen
+// opnieuw aankondigen en zo nodig opnieuw joinen om verbindingen te herstellen.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenSince = Date.now(); return; }
+  if (!room || !roomCode) return;
+  announce();
+  if (Date.now() - hiddenSince > 4000) {
+    const keep = startPayload;
+    try { room.leave(); } catch (e) {}
+    connect(roomCode);          // herbouwt verbinding; roster/likes blijven behouden
+    startPayload = keep;
+    setTimeout(announce, 800);
+  }
+});
 </script>
 </body>
 </html>

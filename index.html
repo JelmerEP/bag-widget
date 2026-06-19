@@ -265,6 +265,11 @@
     <h2 style="margin-top:18px;">Match bij</h2>
     <p class="sub">Hoeveel spelers moeten dezelfde film liken voor een match?</p>
     <div class="seg" id="thresholdPicker"></div>
+
+    <h2 style="margin-top:18px;">Volledige catalogus <span style="color:var(--muted);font-weight:400;font-size:14px;">(optioneel)</span></h2>
+    <p class="sub">Plak een gratis TMDB API-sleutel om <b>álle</b> films op te halen die nú op de gekozen platforms in NL staan. Leeg laten = ingebouwde lijst van 97 films. Wordt alleen lokaal opgeslagen.</p>
+    <input id="tmdbKey" type="text" placeholder="TMDB API-sleutel" autocomplete="off" style="margin-top:8px;" />
+    <p class="sub" id="tmdbStatus" style="margin-top:6px;"></p>
   </div>
   <div id="guestNote" style="display:none;">
     <p class="sub" style="margin-top:18px;">⏳ Wachten tot de host de game start…</p>
@@ -436,6 +441,83 @@ const PLATFORM_META = {
   disney:  { name:'Disney+', short:'D' }
 };
 
+/* TMDB watch-provider-id's voor regio NL (pipe = OR) */
+const PROVIDER_IDS = { netflix:'8', prime:'9|119|2100', hbomax:'1899|384', disney:'337' };
+const TMDB_GENRE = {
+  28:['Actie','💥'], 12:['Avontuur','🧭'], 16:['Animatie','🎨'], 35:['Comedy','😂'],
+  80:['Misdaad','🔫'], 99:['Documentaire','🎥'], 18:['Drama','🎭'], 10751:['Familie','👨‍👩‍👧'],
+  14:['Fantasy','🐉'], 36:['Drama','📜'], 27:['Horror','👻'], 10402:['Muziek','🎵'],
+  9648:['Mystery','🕵️'], 10749:['Romance','💕'], 878:['Sci-Fi','🚀'], 10770:['Drama','📺'],
+  53:['Thriller','🔪'], 10752:['Oorlog','🪖'], 37:['Avontuur','🤠']
+};
+function genreFor(ids) {
+  const g = (ids || []).map(i => TMDB_GENRE[i]).find(Boolean);
+  return g ? { name:g[0], emoji:g[1] } : { name:'Drama', emoji:'🎬' };
+}
+
+async function tmdbGet(path, params, key) {
+  const url = new URL('https://api.themoviedb.org/3' + path);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const opts = {};
+  if (key.includes('.')) opts.headers = { Authorization: 'Bearer ' + key };  // v4 token
+  else url.searchParams.set('api_key', key);                                 // v3 key
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(res.status === 401 ? 'ongeldige sleutel (401)' : 'status ' + res.status);
+  return res.json();
+}
+
+// Haalt de live NL-catalogus op voor de gekozen platforms en bouwt film-objecten.
+async function fetchLiveDeck(platforms, key, pagesPerPlatform = 8) {
+  const map = new Map();
+  for (const pf of platforms) {
+    for (let page = 1; page <= pagesPerPlatform; page++) {
+      let data;
+      try {
+        data = await tmdbGet('/discover/movie', {
+          watch_region: 'NL',
+          with_watch_providers: PROVIDER_IDS[pf],
+          with_watch_monetization_types: 'flatrate',
+          sort_by: 'popularity.desc',
+          'vote_count.gte': '40',
+          include_adult: 'false',
+          language: 'nl-NL',
+          page: String(page)
+        }, key);
+      } catch (e) {
+        if (page === 1) throw e;   // eerste pagina faalt -> echte fout
+        break;
+      }
+      if (!data.results || !data.results.length) break;
+      for (const r of data.results) {
+        if (!r.poster_path || !r.title) continue;
+        const id = 'tmdb' + r.id;
+        let f = map.get(id);
+        if (!f) {
+          const g = genreFor(r.genre_ids);
+          f = {
+            id, title: r.title, year: parseInt((r.release_date || '').slice(0, 4)) || '',
+            rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
+            genre: g.name, emoji: g.emoji, platforms: [],
+            poster: 'https://image.tmdb.org/t/p/w500' + r.poster_path,
+            desc: (r.overview || '').slice(0, 180)
+          };
+          map.set(id, f);
+        }
+        if (!f.platforms.includes(pf)) f.platforms.push(pf);
+      }
+      if (page >= (data.total_pages || 1)) break;
+    }
+  }
+  return [...map.values()];
+}
+
+function setStartLoading(on, txt) {
+  starting = on;
+  const b = $('startBtn');
+  b.disabled = on;
+  b.textContent = on ? (txt || 'Bezig…') : 'Start de game';
+}
+
 const GENRE_GRADIENT = {
   'Sci-Fi':   'linear-gradient(160deg,#0b3d91,#7b2ff7)',
   'Actie':    'linear-gradient(160deg,#b21f1f,#fd5e53)',
@@ -450,7 +532,9 @@ const GENRE_GRADIENT = {
   'Oorlog':   'linear-gradient(160deg,#3e5151,#decba4)',
   'Avontuur': 'linear-gradient(160deg,#1d4350,#a43931)',
   'Familie':  'linear-gradient(160deg,#ff5f6d,#ffc371)',
-  'Muziek':   'linear-gradient(160deg,#5f2c82,#49a09d)'
+  'Muziek':   'linear-gradient(160deg,#5f2c82,#49a09d)',
+  'Fantasy':  'linear-gradient(160deg,#3a1c71,#4ca1af)',
+  'Documentaire': 'linear-gradient(160deg,#373b44,#4286f4)'
 };
 const genreGrad = g => GENRE_GRADIENT[g] || 'linear-gradient(160deg,#434343,#000000)';
 
@@ -472,6 +556,7 @@ let startPayload = null;              // host bewaart dit om te kunnen herhalen
 let gotStart = false;
 let sendRoster, sendLikes, sendStart;
 let announceTimer = null, hiddenSince = 0;
+let starting = false;
 
 /* ----------------------------- Helpers ----------------------------- */
 function show(screenId) {
@@ -578,7 +663,7 @@ function announce() {
   sendRoster({ id: selfId, name: myName });
   const mine = likesByPeer.get(selfId);
   if (mine) sendLikes({ id: selfId, v: mine.v, ids: [...mine.ids] });
-  if (isHost && startPayload) sendStart(startPayload);
+  // startPayload (groot dek) niet periodiek: wordt gericht naar nieuwe peers gestuurd
 }
 
 function bumpMyLikes() {
@@ -593,7 +678,8 @@ function applyStart(cfg) {
   gotStart = true;
   selectedPlatforms = new Set(cfg.platforms);
   threshold = cfg.threshold || 0;
-  deck = cfg.ids.map(id => FILMS.find(f => f.id === id)).filter(Boolean);
+  // nieuw formaat: volledige film-objecten; oud formaat: ids uit FILMS
+  deck = (cfg.films || (cfg.ids || []).map(id => FILMS.find(f => f.id === id))).filter(Boolean);
   deckIndex = 0;
   startGame();
 }
@@ -624,7 +710,7 @@ function renderLobby() {
   renderThresholds();
   renderPlatformViews();
   // start alleen voor host, minimaal 2 spelers
-  $('startBtn').disabled = !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
+  $('startBtn').disabled = starting || !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
   $('startBtn').style.display = isHost ? '' : 'none';
 }
 
@@ -666,17 +752,27 @@ function renderThresholds() {
 }
 
 /* ----------------------------- Game ----------------------------- */
-function buildStartPayload() {
-  const pool = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
-  const seed = [...roomCode].reduce((a,c)=>a+c.charCodeAt(0), 7);
-  const ordered = seededShuffle(pool, seed);
-  return { platforms: [...selectedPlatforms], threshold, ids: ordered.map(f=>f.id) };
-}
-
-function hostStart() {
-  if (!isHost) return;
+async function hostStart() {
+  if (!isHost || starting) return;
   if (roster.size < 2) { toast('Wacht op minstens 1 vriend 🙂'); return; }
-  startPayload = buildStartPayload();
+  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  const seed = [...roomCode].reduce((a, c) => a + c.charCodeAt(0), 7);
+  let films;
+  if (key) {
+    setStartLoading(true, '🎬 Films ophalen…');
+    try {
+      films = await fetchLiveDeck([...selectedPlatforms], key);
+    } catch (e) {
+      toast('TMDB-fout: ' + e.message);
+      setStartLoading(false); renderLobby(); return;
+    }
+    setStartLoading(false);
+    if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); renderLobby(); return; }
+  } else {
+    films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+  }
+  films = seededShuffle(films, seed).slice(0, 400);   // dek-limiet i.v.m. verzendgrootte
+  startPayload = { platforms: [...selectedPlatforms], threshold, films };
   sendStart(startPayload);
   applyStart(startPayload);
 }
@@ -723,11 +819,11 @@ function buildCard(film, isTop) {
     <div class="info">
       <h3>${film.title}</h3>
       <div class="meta">
-        <span class="star">★ ${film.rating.toFixed(1)}</span>
-        <span>${film.year}</span>
-        <span>${film.runtime} min</span>
+        ${film.rating ? `<span class="star">★ ${film.rating.toFixed(1)}</span>` : ''}
+        ${film.year ? `<span>${film.year}</span>` : ''}
+        ${film.runtime ? `<span>${film.runtime} min</span>` : ''}
       </div>
-      <div class="desc">${film.desc}</div>
+      <div class="desc">${film.desc || ''}</div>
       <div class="chips">
         <span class="chip genre">${film.genre}</span>
         ${platformChips}
@@ -842,8 +938,8 @@ function renderMatchList() {
     li.innerHTML = `
       <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${f.poster}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
       <div style="flex:1">
-        <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year}</span></div>
-        <div class="mm">★ ${f.rating.toFixed(1)} · ${f.genre} · ${f.runtime} min</div>
+        <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year || ''}</span></div>
+        <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
         <div class="chips" style="margin-top:6px">${f.platforms.map(p=>`<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('')}</div>
       </div>`;
     ul.appendChild(li);
@@ -861,8 +957,23 @@ $('createBtn').onclick = () => {
   $('hostControls').style.display = '';
   $('guestNote').style.display = 'none';
   renderPlatformPicker();
+  setupTmdbKey();
   renderLobby(); updateConn();
 };
+
+function setupTmdbKey() {
+  const inp = $('tmdbKey');
+  inp.value = localStorage.getItem('tmdb_key') || '';
+  const upd = () => {
+    const v = inp.value.trim();
+    if (v) localStorage.setItem('tmdb_key', v); else localStorage.removeItem('tmdb_key');
+    $('tmdbStatus').innerHTML = v
+      ? '✅ Volledige live catalogus actief — álle films op de gekozen platforms.'
+      : 'ℹ️ Geen sleutel: ingebouwde lijst van 97 films wordt gebruikt.';
+  };
+  inp.oninput = upd;
+  upd();
+}
 
 $('joinBtn').onclick = () => {
   myName = $('nameInput').value.trim();

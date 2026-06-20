@@ -232,6 +232,9 @@
   .sheet .hero { position: relative; height: 220px; background-size: cover; background-position: center; }
   .sheet .hero .grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(22,22,31,0) 35%, var(--bg2) 100%); }
   .sheet .grip { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 42px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.5); z-index: 2; }
+  .sheet-close { position: absolute; top: 12px; right: 12px; z-index: 3; width: 36px; height: 36px; border-radius: 50%;
+                 background: rgba(0,0,0,.55); color: #fff; font-size: 18px; line-height: 1; padding: 0; display: grid; place-items: center;
+                 backdrop-filter: blur(4px); }
   .sheet .hero .heroemoji { position: absolute; bottom: 14px; left: 20px; font-size: 50px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
   .sheet .body { padding: 4px 20px 24px; }
   .sheet h2 { font-size: 24px; margin: 0; line-height: 1.15; }
@@ -365,7 +368,11 @@
     <div class="poster-sm" id="matchPoster"><div class="sh"></div><div class="t" id="matchTitle"></div></div>
     <div class="watch-on" id="matchWho"></div>
     <div class="watch-on">Te kijken op</div>
-    <div class="chips" id="matchPlatforms" style="justify-content:center; margin-bottom:18px;"></div>
+    <div class="chips" id="matchPlatforms" style="justify-content:center; margin-bottom:16px;"></div>
+    <div class="row" style="margin-bottom:10px;">
+      <button id="matchTrailer" class="btn-ghost" style="flex:1;">▶️ Trailer</button>
+      <button id="matchWatch" class="btn-ghost" style="flex:1;">🍿 Waar kijken</button>
+    </div>
     <button id="keepSwipingBtn" class="btn-primary btn-block">Verder swipen</button>
   </div>
 </div>
@@ -375,6 +382,7 @@
   <div class="sheet" id="sheet">
     <div class="hero" id="sheetHero">
       <div class="grip"></div>
+      <button class="sheet-close" id="sheetClose">✕</button>
       <div class="grad"></div>
       <div class="heroemoji" id="sheetEmoji"></div>
     </div>
@@ -385,14 +393,11 @@
       <div class="tagline" id="sheetTagline" style="display:none;"></div>
       <p class="syn" id="sheetSyn"></p>
       <div id="sheetExtra"></div>
-      <div class="actrow">
-        <button class="btn-ghost" id="sheetTrailer">▶️ Trailer</button>
-        <button class="btn-ghost" id="sheetWatch">🍿 Waar kijken</button>
-      </div>
       <div class="decide" id="sheetDecide">
         <div class="circle nope" id="sheetNope">✕</div>
         <div class="circle like" id="sheetLike">♥</div>
       </div>
+      <button class="btn-ghost btn-block" id="sheetBack" style="margin-top:16px;">Terug</button>
     </div>
   </div>
 </div>
@@ -1003,7 +1008,6 @@ function openDetails(film) {
   $('sheetTagline').style.display = 'none';
   $('sheetSyn').textContent = film.synopsis || film.desc || 'Geen beschrijving beschikbaar.';
   $('sheetExtra').innerHTML = '';
-  $('sheetTrailer').dataset.yt = '';
   $('sheetDecide').style.display = (film === deck[deckIndex]) ? '' : 'none';
   $('sheetWrap').classList.add('active');
 
@@ -1039,9 +1043,6 @@ function renderRich(d) {
       </div>`).join('') + '</div>';
   }
   $('sheetExtra').innerHTML = html;
-  const vids = (d.videos && d.videos.results) || [];
-  const tr = vids.find(v => v.site === 'YouTube' && v.type === 'Trailer') || vids.find(v => v.site === 'YouTube');
-  $('sheetTrailer').dataset.yt = tr ? tr.key : '';
 }
 
 // sleep de hero naar beneden om te sluiten
@@ -1076,6 +1077,7 @@ function updateMatchCount() {
 
 let matchQueue = [];
 let overlayOpen = false;
+let currentMatchFilm = null;
 function celebrate(film) {
   matchQueue.push(film);
   if (!overlayOpen) showNextMatch();
@@ -1093,6 +1095,7 @@ function showNextMatch() {
   if (matchQueue.length === 0) { overlayOpen = false; return; }
   overlayOpen = true;
   const film = matchQueue.shift();
+  currentMatchFilm = film;
   $('matchTitle').textContent = `${film.title}${film.year ? ` (${film.year})` : ''}`;
   $('matchPoster').style.background = film.poster
     ? `center/cover no-repeat url("${film.poster}"), ${genreGrad(film.genre)}`
@@ -1185,19 +1188,24 @@ $('matchesPill').onclick = () => { renderMatchList(); show('matchesScreen'); };
 $('backToGameBtn').onclick = () => show(deckIndex >= deck.length ? 'matchesScreen' : 'game');
 
 // detailscherm-knoppen
-$('sheetTrailer').onclick = () => {
-  const yt = $('sheetTrailer').dataset.yt;
-  const url = yt
-    ? 'https://www.youtube.com/watch?v=' + yt
-    : 'https://www.youtube.com/results?search_query=' + encodeURIComponent((sheetFilm?.title || '') + ' ' + (sheetFilm?.year || '') + ' trailer');
-  window.open(url, '_blank', 'noopener');
-};
-$('sheetWatch').onclick = () => {
-  if (sheetFilm) window.open('https://www.justwatch.com/nl/zoeken?q=' + encodeURIComponent(sheetFilm.title), '_blank', 'noopener');
-};
+$('sheetClose').onclick = closeDetails;
+$('sheetBack').onclick = closeDetails;
 $('sheetNope').onclick = () => { closeDetails(); programmaticSwipe(false); };
 $('sheetLike').onclick = () => { closeDetails(); programmaticSwipe(true); };
 $('sheetWrap').addEventListener('click', e => { if (e.target === $('sheetWrap')) closeDetails(); });
+
+// trailer- + waar-kijken-links (gebruikt op het match-scherm)
+function trailerUrl(film) {
+  return 'https://www.youtube.com/results?search_query=' +
+    encodeURIComponent((film.title || '') + ' ' + (film.year || '') + ' trailer');
+}
+function watchUrl(film) {
+  return film.tmdbId
+    ? `https://www.themoviedb.org/movie/${film.tmdbId}/watch?locale=NL`   // toont NL-aanbieders
+    : 'https://www.justwatch.com/nl/search?q=' + encodeURIComponent(film.title);
+}
+$('matchTrailer').onclick = () => { if (currentMatchFilm) window.open(trailerUrl(currentMatchFilm), '_blank', 'noopener'); };
+$('matchWatch').onclick = () => { if (currentMatchFilm) window.open(watchUrl(currentMatchFilm), '_blank', 'noopener'); };
 
 // auto-uppercase code input
 $('joinCode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });

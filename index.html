@@ -210,6 +210,48 @@
   .status { font-size: 12px; color: var(--muted); text-align: center; padding: 8px; }
   .dotlive { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--like); margin-right: 6px; vertical-align: middle; box-shadow: 0 0 8px var(--like); }
   .dotlive.off { background: #888; box-shadow: none; }
+
+  /* Undo-knop */
+  .circle.undo { width: 50px; height: 50px; font-size: 20px; color: #ffce4d; }
+  .circle.undo:disabled, .circle.undo.disabled { opacity: .3; pointer-events: none; }
+
+  /* Detail bottom-sheet */
+  .sheet-wrap {
+    position: fixed; inset: 0; z-index: 70; display: none;
+    background: rgba(6,6,12,.6); backdrop-filter: blur(3px);
+  }
+  .sheet-wrap.active { display: block; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
+    max-height: 92vh; overflow-y: auto; background: var(--bg2);
+    border-radius: 22px 22px 0 0; border: 1px solid var(--line); border-bottom: none;
+    transform: translateY(100%); transition: transform .3s cubic-bezier(.2,.8,.2,1);
+    -webkit-overflow-scrolling: touch;
+  }
+  .sheet-wrap.active .sheet { transform: translateY(0); }
+  .sheet .hero { position: relative; height: 220px; background-size: cover; background-position: center; }
+  .sheet .hero .grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(22,22,31,0) 35%, var(--bg2) 100%); }
+  .sheet .grip { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 42px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.5); z-index: 2; }
+  .sheet .hero .heroemoji { position: absolute; bottom: 14px; left: 20px; font-size: 50px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
+  .sheet .body { padding: 4px 20px 24px; }
+  .sheet h2 { font-size: 24px; margin: 0; line-height: 1.15; }
+  .sheet .submeta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: #cfcfe0; font-size: 13px; margin: 10px 0; }
+  .sheet .submeta .star { color: #ffd54a; font-weight: 700; }
+  .sheet .tagline { font-style: italic; color: var(--accent); margin: 4px 0 12px; font-size: 14px; }
+  .sheet .syn { color: #dcdce8; font-size: 14.5px; line-height: 1.6; }
+  .sheet .section-h { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 0 6px; }
+  .sheet .crew { font-size: 14px; color: #e7e7f0; line-height: 1.6; }
+  .sheet .cast { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+  .sheet .cast .c { flex: none; width: 78px; text-align: center; }
+  .sheet .cast .c .ph { width: 70px; height: 70px; border-radius: 50%; background: var(--card); background-size: cover; background-position: center; margin: 0 auto 6px; display: grid; place-items: center; font-size: 24px; color: var(--muted); }
+  .sheet .cast .c .nm { font-size: 11px; line-height: 1.3; color: #e7e7f0; }
+  .sheet .cast .c .ch { font-size: 10px; color: var(--muted); }
+  .sheet .actrow { display: flex; gap: 10px; margin-top: 18px; }
+  .sheet .actrow button { flex: 1; font-size: 14px; padding: 13px; }
+  .sheet .decide { display: flex; gap: 14px; justify-content: center; margin-top: 18px; }
+  .sheet .loading { color: var(--muted); font-size: 13px; margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp 1s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -296,6 +338,7 @@
   <div class="deck" id="deck"></div>
 
   <div class="actions" id="actions">
+    <button class="circle undo" id="undoBtn" disabled title="Maak je laatste swipe ongedaan">↩</button>
     <div class="circle nope" id="nopeBtn">✕</div>
     <div class="circle info" id="infoBtn">ℹ️</div>
     <div class="circle like" id="likeBtn">♥</div>
@@ -320,9 +363,37 @@
   <div class="matchcard">
     <div class="its">It's a <span class="grad-text">match!</span> 💞</div>
     <div class="poster-sm" id="matchPoster"><div class="sh"></div><div class="t" id="matchTitle"></div></div>
+    <div class="watch-on" id="matchWho"></div>
     <div class="watch-on">Te kijken op</div>
     <div class="chips" id="matchPlatforms" style="justify-content:center; margin-bottom:18px;"></div>
     <button id="keepSwipingBtn" class="btn-primary btn-block">Verder swipen</button>
+  </div>
+</div>
+
+<!-- DETAIL SHEET -->
+<div class="sheet-wrap" id="sheetWrap">
+  <div class="sheet" id="sheet">
+    <div class="hero" id="sheetHero">
+      <div class="grip"></div>
+      <div class="grad"></div>
+      <div class="heroemoji" id="sheetEmoji"></div>
+    </div>
+    <div class="body">
+      <h2 id="sheetTitle"></h2>
+      <div class="submeta" id="sheetMeta"></div>
+      <div class="chips" id="sheetChips"></div>
+      <div class="tagline" id="sheetTagline" style="display:none;"></div>
+      <p class="syn" id="sheetSyn"></p>
+      <div id="sheetExtra"></div>
+      <div class="actrow">
+        <button class="btn-ghost" id="sheetTrailer">▶️ Trailer</button>
+        <button class="btn-ghost" id="sheetWatch">🍿 Waar kijken</button>
+      </div>
+      <div class="decide" id="sheetDecide">
+        <div class="circle nope" id="sheetNope">✕</div>
+        <div class="circle like" id="sheetLike">♥</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -335,103 +406,103 @@ import { joinRoom, selfId } from 'https://esm.sh/trystero@0.21.0/nostr';
  * Gecureerde lijst. platforms: netflix | prime | hbomax | disney
  * Beschikbaarheid kan in werkelijkheid wijzigen. */
 const FILMS = [
-  { id:'inception', title:'Inception', year:2010, rating:8.8, runtime:148, genre:'Sci-Fi', emoji:'🌀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg", desc:'Een dievenploeg steelt geheimen uit dromen — en moet er nu juist één planten.' },
-  { id:'interstellar', title:'Interstellar', year:2014, rating:8.7, runtime:169, genre:'Sci-Fi', emoji:'🚀', platforms:["prime", "hbomax"], poster:"https://image.tmdb.org/t/p/w500/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg", desc:'Astronauten reizen door een wormgat om een nieuw thuis voor de mensheid te vinden.' },
-  { id:'dune2', title:'Dune: Part Two', year:2024, rating:8.5, runtime:166, genre:'Sci-Fi', emoji:'🏜️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg", desc:'Paul Atreides verenigt de Fremen voor een wraakoorlog om Arrakis.' },
-  { id:'dune1', title:'Dune', year:2021, rating:8.0, runtime:155, genre:'Sci-Fi', emoji:'🪐', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg", desc:'Een jonge edelman komt terecht in een dodelijke strijd om de woestijnplaneet Arrakis.' },
-  { id:'oppenheimer', title:'Oppenheimer', year:2023, rating:8.3, runtime:180, genre:'Drama', emoji:'💥', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", desc:'Het waargebeurde verhaal achter de man die de atoombom bedacht.' },
-  { id:'barbie', title:'Barbie', year:2023, rating:6.9, runtime:114, genre:'Comedy', emoji:'🎀', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg", desc:'Barbie krijgt een existentiële crisis en trekt de echte wereld in.' },
-  { id:'glassonion', title:'Glass Onion', year:2022, rating:7.1, runtime:139, genre:'Mystery', emoji:'🧅', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vDGr1YdrlfbU9wxTOdpf3zChmv9.jpg", desc:'Detective Benoit Blanc ontrafelt een moord op een privé-eiland.' },
-  { id:'knivesout', title:'Knives Out', year:2019, rating:7.9, runtime:130, genre:'Mystery', emoji:'🔪', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/pThyQovXQrw2m0s9x82twj48Jq4.jpg", desc:'Een excentrieke familie, een dode patriarch en een briljante speurder.' },
-  { id:'topgun2', title:'Top Gun: Maverick', year:2022, rating:8.2, runtime:130, genre:'Actie', emoji:'✈️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg", desc:'Maverick traint een nieuwe lichting piloten voor een onmogelijke missie.' },
-  { id:'spiderverse2', title:'Spider-Man: Across the Spider-Verse', year:2023, rating:8.5, runtime:140, genre:'Animatie', emoji:'🕸️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg", desc:'Miles Morales reist door het multiversum vol Spider-People.' },
-  { id:'everything', title:'Everything Everywhere All at Once', year:2022, rating:7.8, runtime:139, genre:'Sci-Fi', emoji:'🥯', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/u68AjlvlutfEIcpmbYpKcdi09ut.jpg", desc:'Een moeder springt door parallelle universa om de werkelijkheid te redden.' },
-  { id:'thebatman', title:'The Batman', year:2022, rating:7.8, runtime:176, genre:'Actie', emoji:'🦇', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg", desc:'Een jonge Bruce Wayne jaagt op de Riddler in een rottend Gotham.' },
-  { id:'avengersendgame', title:'Avengers: Endgame', year:2019, rating:8.4, runtime:181, genre:'Actie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ulzhLuWrPK07P1YkdWQLZnQh1JL.jpg", desc:'De Avengers wagen een laatste poging om Thanos\' daad terug te draaien.' },
-  { id:'guardians3', title:'Guardians of the Galaxy Vol. 3', year:2023, rating:7.9, runtime:150, genre:'Actie', emoji:'🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg", desc:'De Guardians vechten voor Rocket\'s leven en hun eigen toekomst.' },
-  { id:'encanto', title:'Encanto', year:2021, rating:7.2, runtime:102, genre:'Animatie', emoji:'🕯️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/4j0PNHkMr5ax3IA8tjtxcmPU3QT.jpg", desc:'Een magische Colombiaanse familie waarvan alleen Mirabel geen gave heeft.' },
-  { id:'soul', title:'Soul', year:2020, rating:8.0, runtime:100, genre:'Animatie', emoji:'🎹', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6jmppcaubzLF8wkXM36ganVISCo.jpg", desc:'Een jazzmuzikant belandt tussen leven en dood en zoekt zijn vonk.' },
-  { id:'wakanda', title:'Black Panther: Wakanda Forever', year:2022, rating:6.7, runtime:161, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/sv1xJUazXeYqALzczSZ3O6nkH75.jpg", desc:'Wakanda rouwt en verdedigt zich tegen een onderwaterrijk.' },
-  { id:'thewhale', title:'The Whale', year:2022, rating:7.7, runtime:117, genre:'Drama', emoji:'🐋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/jQ0gylJMxWSL490sy0RrPj1Lj7e.jpg", desc:'Een teruggetrokken leraar probeert zich met zijn dochter te verzoenen.' },
-  { id:'flowermoon', title:'Killers of the Flower Moon', year:2023, rating:7.6, runtime:206, genre:'Drama', emoji:'🌙', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/dB6Krk806zeqd0YNp2ngQ9zXteH.jpg", desc:'Moorden op de rijke Osage-stam onthullen een gruwelijk complot.' },
-  { id:'wednesday', title:'Wednesday', year:2022, rating:8.1, runtime:50, genre:'Mystery', emoji:'🖤', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gl66K7zRdtNYGrxyS2YDUP5ASZd.jpg", desc:'Wednesday Addams lost een mysterie op haar bizarre kostschool op.' },
-  { id:'rednotice', title:'Red Notice', year:2021, rating:6.3, runtime:118, genre:'Actie', emoji:'💎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lAXONuqg41NwUMuzMiFvicDET9Y.jpg", desc:'Een FBI-profiler en twee meesterdieven jagen op hetzelfde kleinood.' },
-  { id:'graymangray', title:'The Gray Man', year:2022, rating:6.4, runtime:122, genre:'Actie', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8cXbitsS6dWQ5gfMTZdorpAAzEH.jpg", desc:'Een CIA-huurling wordt opgejaagd nadat hij vuile geheimen ontdekt.' },
-  { id:'dontlookup', title:'Don\'t Look Up', year:2021, rating:7.2, runtime:138, genre:'Comedy', emoji:'☄️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/th4E1yqsE8DGpAseLiUrI60Hf8V.jpg", desc:'Twee astronomen waarschuwen voor een komeet — niemand luistert.' },
-  { id:'themenu', title:'The Menu', year:2022, rating:7.2, runtime:107, genre:'Mystery', emoji:'🍽️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fPtUgMcLIboqlTlPrq0bQpKK8eq.jpg", desc:'Een exclusief diner verandert in een dodelijk culinair spel.' },
-  { id:'nope', title:'Nope', year:2022, rating:6.8, runtime:130, genre:'Horror', emoji:'🛸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/AcKVlWaNVVVFQwro3nLXqPljcYA.jpg", desc:'Ranch-eigenaren filmen iets onverklaarbaars boven hun vallei.' },
-  { id:'getout', title:'Get Out', year:2017, rating:7.7, runtime:104, genre:'Horror', emoji:'🫖', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mE24wUCfjK8AoBBjaMjho7Rczr7.jpg", desc:'Een weekend bij de ouders van zijn vriendin loopt griezelig uit de hand.' },
-  { id:'quietplace', title:'A Quiet Place', year:2018, rating:7.5, runtime:90, genre:'Horror', emoji:'🤫', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nAU74GmpUk7t5iklEp3bufwDq4n.jpg", desc:'Een gezin overleeft in stilte tussen wezens die op geluid jagen.' },
-  { id:'parasite', title:'Parasite', year:2019, rating:8.5, runtime:132, genre:'Drama', emoji:'🪜', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/4DGPORlVIDIQvsuSDnM4uXKMjWS.jpg", desc:'Een arme familie nestelt zich sluw in het leven van een rijke familie.' },
-  { id:'lalaland', title:'La La Land', year:2016, rating:8.0, runtime:128, genre:'Romance', emoji:'🎷', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/uDO8zWDhfWwoFdKS4fzkUJt0Rf0.jpg", desc:'Een jazzpianist en een actrice in spe verliezen zich in liefde en ambitie.' },
-  { id:'pastlives', title:'Past Lives', year:2023, rating:7.8, runtime:106, genre:'Romance', emoji:'🌸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg", desc:'Twee jeugdvrienden ontmoeten elkaar na twintig jaar opnieuw.' },
-  { id:'anyonebutyou', title:'Anyone But You', year:2023, rating:6.2, runtime:104, genre:'Romance', emoji:'💕', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/5qHoazZiaLe7oFBok7XlUhg96f2.jpg", desc:'Twee exen doen op een bruiloft alsof ze een setje zijn.' },
-  { id:'fallguy', title:'The Fall Guy', year:2024, rating:6.9, runtime:126, genre:'Actie', emoji:'🎬', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/e7olqFmzcIX5c23kX4zSmLPJi8c.jpg", desc:'Een stuntman zoekt een verdwenen filmster én zijn ex terug.' },
-  { id:'mi7', title:'Mission: Impossible - Dead Reckoning', year:2023, rating:7.7, runtime:163, genre:'Actie', emoji:'🕴️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg", desc:'Ethan Hunt jaagt op een wapen dat de wereld kan ontwrichten.' },
-  { id:'johnwick4', title:'John Wick: Chapter 4', year:2023, rating:7.7, runtime:169, genre:'Actie', emoji:'🐕', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg", desc:'Wick zoekt vrijheid in een wereldwijde oorlog tegen de High Table.' },
-  { id:'sicario', title:'Sicario', year:2015, rating:7.6, runtime:121, genre:'Thriller', emoji:'🚙', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lz8vNyXeidqqOdJW9ZjnDAMb5Vr.jpg", desc:'Een FBI-agente raakt verstrikt in de schimmige drugsoorlog.' },
-  { id:'prisoners', title:'Prisoners', year:2013, rating:8.2, runtime:153, genre:'Thriller', emoji:'🕯️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/jsS3a3ep2KyBVmmiwaz3LvK49b1.jpg", desc:'Een vader neemt het recht in eigen hand als zijn dochter verdwijnt.' },
-  { id:'gonegirl', title:'Gone Girl', year:2014, rating:8.1, runtime:149, genre:'Thriller', emoji:'📰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ts996lKsxvjkO2yiYG0ht4qAicO.jpg", desc:'Een vrouw verdwijnt en alle ogen richten zich op haar man.' },
-  { id:'whiplash', title:'Whiplash', year:2014, rating:8.5, runtime:106, genre:'Drama', emoji:'🥁', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg", desc:'Een jonge drummer wordt tot het uiterste gedreven door een tirannieke docent.' },
-  { id:'socialnetwork', title:'The Social Network', year:2010, rating:7.8, runtime:120, genre:'Drama', emoji:'💻', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/n0ybibhJtQ5icDqTp8eRytcIHJx.jpg", desc:'De turbulente geboorte van Facebook en de vriendschappen die sneuvelden.' },
-  { id:'madmax', title:'Mad Max: Fury Road', year:2015, rating:8.1, runtime:120, genre:'Actie', emoji:'🏎️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/hA2ple9q4qnwxp3hKVNhroipsir.jpg", desc:'Een woeste achtervolging door een post-apocalyptische woestijn.' },
-  { id:'bladerunner2049', title:'Blade Runner 2049', year:2017, rating:8.0, runtime:164, genre:'Sci-Fi', emoji:'🌆', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg", desc:'Een blade runner ontdekt een geheim dat de samenleving kan ontwrichten.' },
-  { id:'arrival', title:'Arrival', year:2016, rating:7.9, runtime:116, genre:'Sci-Fi', emoji:'🛸', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg", desc:'Een taalkundige probeert te communiceren met geland buitenaards leven.' },
-  { id:'grandbudapest', title:'The Grand Budapest Hotel', year:2014, rating:8.1, runtime:99, genre:'Comedy', emoji:'🛎️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg", desc:'Een legendarische conciërge en zijn page beleven een absurd avontuur.' },
-  { id:'jojorabbit', title:'Jojo Rabbit', year:2019, rating:7.9, runtime:108, genre:'Comedy', emoji:'🐰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/7GsM4mtM0worCtIVeiQt28HieeN.jpg", desc:'Een jongen in nazi-Duitsland heeft Hitler als ingebeelde vriend.' },
-  { id:'nowayhome', title:'Spider-Man: No Way Home', year:2021, rating:8.2, runtime:148, genre:'Actie', emoji:'🕷️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg", desc:'Spider-Man scheurt het multiversum open met desastreuze gevolgen.' },
-  { id:'holdovers', title:'The Holdovers', year:2023, rating:7.9, runtime:133, genre:'Comedy', emoji:'❄️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/VHSzNBTwxV8vh7wylo7O9CLdac.jpg", desc:'Een norse leraar zit met een leerling vast op een verlaten campus.' },
-  { id:'wolfwallstreet', title:'The Wolf of Wall Street', year:2013, rating:8.2, runtime:180, genre:'Drama', emoji:'💸', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/kW9LmvYHAaS9iA0tHmZVq8hQYoq.jpg", desc:'De spectaculaire opkomst en ondergang van een corrupte beursmagnaat.' },
-  { id:'django', title:'Django Unchained', year:2012, rating:8.5, runtime:165, genre:'Actie', emoji:'🤠', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg", desc:'Een bevrijde slaaf en een premiejager zoeken zijn vrouw in het diepe Zuiden.' },
-  { id:'darkknight', title:'The Dark Knight', year:2008, rating:9.0, runtime:152, genre:'Actie', emoji:'🦇', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", desc:'Batman neemt het op tegen de chaotische Joker die Gotham terroriseert.' },
-  { id:'joker', title:'Joker', year:2019, rating:8.4, runtime:122, genre:'Drama', emoji:'🃏', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg", desc:'Een mislukte komiek glijdt af naar waanzin en wordt een symbool van opstand.' },
-  { id:'shutterisland', title:'Shutter Island', year:2010, rating:8.2, runtime:138, genre:'Thriller', emoji:'🌊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg", desc:'Een marshal onderzoekt een verdwijning op een eiland vol duistere geheimen.' },
-  { id:'departed', title:'The Departed', year:2006, rating:8.5, runtime:151, genre:'Thriller', emoji:'🚔', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nT97ifVT2J1yMQmeq20Qblg61T.jpg", desc:'Een mol bij de politie en een undercover agent jagen op elkaar.' },
-  { id:'pulpfiction', title:'Pulp Fiction', year:1994, rating:8.9, runtime:154, genre:'Misdaad', emoji:'🍔', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg", desc:'Verweven verhalen van huurmoordenaars, een bokser en een gangsterbaas.' },
-  { id:'shawshank', title:'The Shawshank Redemption', year:1994, rating:9.3, runtime:142, genre:'Drama', emoji:'⛓️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg", desc:'Een onschuldig veroordeelde bankier vindt hoop in een meedogenloze gevangenis.' },
-  { id:'goodfellas', title:'Goodfellas', year:1990, rating:8.7, runtime:145, genre:'Misdaad', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg", desc:'Het waargebeurde leven binnen de meedogenloze New Yorkse maffia.' },
-  { id:'gladiator', title:'Gladiator', year:2000, rating:8.5, runtime:155, genre:'Actie', emoji:'⚔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/wN2xWp1eIwCKOD0BHTcErTBv1Uq.jpg", desc:'Een verraden generaal wordt gladiator en zint op wraak tegen de keizer.' },
-  { id:'savingprivate', title:'Saving Private Ryan', year:1998, rating:8.6, runtime:169, genre:'Oorlog', emoji:'🪖', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/uqx37cS8cpHg8U35f9U5IBlrCV3.jpg", desc:'Soldaten trekken door bezet Frankrijk om één para terug te halen.' },
-  { id:'titanic', title:'Titanic', year:1997, rating:7.9, runtime:194, genre:'Romance', emoji:'🚢', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg", desc:'Een onmogelijke liefde aan boord van het schip dat ten onder ging.' },
-  { id:'avatarwater', title:'Avatar: The Way of Water', year:2022, rating:7.6, runtime:192, genre:'Sci-Fi', emoji:'💧', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg", desc:'De familie Sully vlucht en vecht in de oceanen van Pandora.' },
-  { id:'moana', title:'Moana', year:2016, rating:7.6, runtime:107, genre:'Animatie', emoji:'🌊', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/zKVgiv5qHCvCLT4A2ymJi5QeXDH.jpg", desc:'Een dappere eilandprinses vaart uit om haar volk te redden.' },
-  { id:'coco', title:'Coco', year:2017, rating:8.4, runtime:105, genre:'Animatie', emoji:'💀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg", desc:'Een muzikale jongen belandt in het kleurrijke Land van de Doden.' },
-  { id:'insideout2', title:'Inside Out 2', year:2024, rating:7.6, runtime:96, genre:'Animatie', emoji:'🧠', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg", desc:'Nieuwe emoties zorgen voor chaos in het hoofd van tiener Riley.' },
-  { id:'deadpool', title:'Deadpool', year:2016, rating:8.0, runtime:108, genre:'Actie', emoji:'🩸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3E53WEZJqP6aM84D8CckXx4pIHw.jpg", desc:'Een grofgebekte huurling met regeneratiekracht jaagt op de man die hem maakte.' },
-  { id:'logan', title:'Logan', year:2017, rating:8.1, runtime:137, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fnbjcRDYn6YviCcePDnGdyAkYsB.jpg", desc:'Een verouderde Wolverine beschermt een jong mutantenmeisje op de vlucht.' },
-  { id:'thorragnarok', title:'Thor: Ragnarok', year:2017, rating:7.9, runtime:131, genre:'Actie', emoji:'⚡', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/rzRwTcFvttcN1ZpX2xv4j3tSdJu.jpg", desc:'Thor moet ontsnappen en Asgard redden van de godin van de dood.' },
-  { id:'freeguy', title:'Free Guy', year:2021, rating:7.1, runtime:115, genre:'Comedy', emoji:'🕹️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/dxraF0qPr1OEgJk17ltQTO84kQF.jpg", desc:'Een NPC in een videogame ontdekt dat hij zijn eigen lot kan kiezen.' },
-  { id:'themartian', title:'The Martian', year:2015, rating:8.0, runtime:144, genre:'Sci-Fi', emoji:'👨‍🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3ndAx3weG6KDkJIRMCi5vXX6Dyb.jpg", desc:'Een astronaut overleeft alleen op Mars en vecht om naar huis te komen.' },
-  { id:'bohemian', title:'Bohemian Rhapsody', year:2018, rating:7.9, runtime:134, genre:'Muziek', emoji:'🎤', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/lHu1wtNaczFPGFDTrjCSzeLPTKN.jpg", desc:'Het verhaal van Queen en het onvergetelijke optreden van Freddie Mercury.' },
-  { id:'revenant', title:'The Revenant', year:2015, rating:8.0, runtime:156, genre:'Avontuur', emoji:'🐻', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ji3ecJphATlVgWNY0B0RVXZizdf.jpg", desc:'Een pelsjager kruipt door de wildernis, gedreven door pure wraak.' },
-  { id:'1917', title:'1917', year:2019, rating:8.2, runtime:119, genre:'Oorlog', emoji:'🎖️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/iZf0KyrE25z1sage4SYFLCCrMi9.jpg", desc:'Twee soldaten racen door vijandelijk gebied om een aanval te stoppen.' },
-  { id:'bullettrain', title:'Bullet Train', year:2022, rating:7.3, runtime:127, genre:'Actie', emoji:'🚄', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/j8szC8OgrejDQjjMKSVXyaAjw3V.jpg", desc:'Rivaliserende huurmoordenaars zitten vast op dezelfde hogesnelheidstrein.' },
-  { id:'extraction', title:'Extraction', year:2020, rating:6.7, runtime:116, genre:'Actie', emoji:'💣', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/nygOUcBKPHFTbxsYRFZVePqgPK6.jpg", desc:'Een huursoldaat moet de ontvoerde zoon van een drugsbaron bevrijden.' },
-  { id:'enolaholmes', title:'Enola Holmes', year:2020, rating:6.6, runtime:123, genre:'Mystery', emoji:'🔎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/riYInlsq2kf1AWoGm80JQW5dLKp.jpg", desc:'De pittige jongere zus van Sherlock lost haar eigen eerste zaak op.' },
-  { id:'allquiet', title:'All Quiet on the Western Front', year:2022, rating:7.8, runtime:148, genre:'Oorlog', emoji:'🥀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2IRjbi9cADuDMKmHdLK7LaqQDKA.jpg", desc:'Een jonge Duitse soldaat ontdekt de gruwel van de loopgraven.' },
-  { id:'societysnow', title:'Society of the Snow', year:2023, rating:7.8, runtime:144, genre:'Drama', emoji:'🏔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2e853FDVSIso600RqAMunPxiZjq.jpg", desc:'Overlevenden van een vliegramp vechten om te overleven in de Andes.' },
-  { id:'leaveworld', title:'Leave the World Behind', year:2023, rating:6.5, runtime:138, genre:'Thriller', emoji:'📡', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/29rhl1xopxA7JlGVVsf1UHfYPvN.jpg", desc:'Een vakantie ontspoort wanneer een mysterieuze cyberaanval het land lamlegt.' },
-  { id:'thekiller', title:'The Killer', year:2023, rating:6.7, runtime:118, genre:'Thriller', emoji:'🎯', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/ipkcgvN7h3yZnbYowthloHLKsf4.jpg", desc:'Een koelbloedige huurmoordenaar jaagt op wraak na een mislukte klus.' },
-  { id:'saltburn', title:'Saltburn', year:2023, rating:7.0, runtime:131, genre:'Drama', emoji:'🦋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/zGTfMwG112BC66mpaveVxoWPOaB.jpg", desc:'Een student raakt geobsedeerd door een rijke klasgenoot en diens landgoed.' },
-  { id:'roadhouse', title:'Road House', year:2024, rating:6.0, runtime:121, genre:'Actie', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/fDEdtS4P0gJsxHDIt8dG8TR5dx1.jpg", desc:'Een ex-UFC-vechter wordt uitsmijter bij een louche bar in Florida.' },
-  { id:'air', title:'Air', year:2023, rating:7.4, runtime:112, genre:'Drama', emoji:'👟', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/76AKQPdH3M8cvsFR9K8JsOzVlY5.jpg", desc:'Nike waagt alles om een jonge Michael Jordan te strikken.' },
-  { id:'creed3', title:'Creed III', year:2023, rating:6.7, runtime:116, genre:'Drama', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/cvsXj3I9Q2iyyIo95AecSd1tad7.jpg", desc:'Adonis Creed neemt het op tegen een vriend uit zijn verleden.' },
-  { id:'wonka', title:'Wonka', year:2023, rating:7.0, runtime:116, genre:'Familie', emoji:'🍫', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qhb1qOilapbapxWQn9jtRCMwXJF.jpg", desc:'Hoe een jonge dromer de beroemdste chocolademaker ter wereld werd.' },
-  { id:'aquaman', title:'Aquaman', year:2018, rating:6.8, runtime:143, genre:'Actie', emoji:'🔱', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/ufl63EFcc5XpByEV2Ecdw6WJZAI.jpg", desc:'De halfbloed troonopvolger moet de onderwaterwereld Atlantis verenigen.' },
-  { id:'wonderwoman', title:'Wonder Woman', year:2017, rating:7.4, runtime:141, genre:'Actie', emoji:'🛡️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/v4ncgZjG2Zu8ZW5al1vIZTsSjqX.jpg", desc:'Een Amazone-prinses verlaat haar eiland om een wereldoorlog te stoppen.' },
-  { id:'it2017', title:'It', year:2017, rating:7.3, runtime:135, genre:'Horror', emoji:'🎈', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg", desc:'Een groep kinderen verslaat een eeuwenoud kwaad dat als clown verschijnt.' },
-  { id:'lotr1', title:'The Lord of the Rings: The Fellowship of the Ring', year:2001, rating:8.9, runtime:178, genre:'Avontuur', emoji:'💍', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg", desc:'Een hobbit begint een gevaarlijke tocht om een machtige ring te vernietigen.' },
-  { id:'harrypotter1', title:'Harry Potter and the Philosopher\'s Stone', year:2001, rating:7.6, runtime:152, genre:'Familie', emoji:'⚡', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg", desc:'Een wees ontdekt dat hij een tovenaar is en gaat naar Zweinstein.' },
-  { id:'conjuring', title:'The Conjuring', year:2013, rating:7.5, runtime:112, genre:'Horror', emoji:'👻', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wVYREutTvI2tmxr6ujrHT704wGF.jpg", desc:'Paranormaal onderzoekers helpen een gezin dat door een demon wordt geterroriseerd.' },
-  { id:'astarisborn', title:'A Star Is Born', year:2018, rating:7.6, runtime:136, genre:'Muziek', emoji:'🎙️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wrFpXMNBRj2PBiN4Z5kix51XaIZ.jpg", desc:'Een muzikant ontdekt een zangeres terwijl zijn eigen ster verbleekt.' },
-  { id:'tenet', title:'Tenet', year:2020, rating:7.3, runtime:150, genre:'Sci-Fi', emoji:'⏳', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/aCIFMriQh8rvhxpN1IWGgvH0Tlg.jpg", desc:'Een agent leert tijd manipuleren om een wereldwijde ramp te voorkomen.' },
-  { id:'elvis', title:'Elvis', year:2022, rating:7.3, runtime:159, genre:'Muziek', emoji:'🕺', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qBOKWqAFbveZ4ryjJJwbie6tXkQ.jpg", desc:'Het turbulente leven van de King of Rock \'n\' Roll en zijn manager.' },
-  { id:'furiosa', title:'Furiosa: A Mad Max Saga', year:2024, rating:7.5, runtime:148, genre:'Actie', emoji:'🔥', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iADOJ8Zymht2JPMoy3R7xceZprc.jpg", desc:'De jonge Furiosa vecht om te overleven in de woestenij van Mad Max.' },
-  { id:'irishman', title:'The Irishman', year:2019, rating:7.8, runtime:209, genre:'Misdaad', emoji:'🎩', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mbm8k3GFhXS0ROd9AD1gqYbIFbM.jpg", desc:'Een huurmoordenaar blikt terug op zijn rol in de maffia en de moord op Hoffa.' },
-  { id:'rebelridge', title:'Rebel Ridge', year:2024, rating:7.1, runtime:131, genre:'Thriller', emoji:'🚓', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xEt2GSz9z5rSVpIHMiGdtf0czyf.jpg", desc:'Een ex-marinier neemt het op tegen een corrupt politiekorps.' },
-  { id:'hitman', title:'Hit Man', year:2023, rating:6.9, runtime:115, genre:'Comedy', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/oil3EZwKFp3CWxZnfGfGglesvm9.jpg", desc:'Een brave professor speelt nep-huurmoordenaar en valt voor een cliënt.' },
-  { id:'incrediblesfamily', title:'The Incredibles', year:2004, rating:8.0, runtime:115, genre:'Animatie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/2LqaLgk4Z226KkgPJuiOQ58wvrm.jpg", desc:'Een gezin van superhelden moet hun krachten weer inzetten om de wereld te redden.' },
-  { id:'upmovie', title:'Up', year:2009, rating:8.3, runtime:96, genre:'Animatie', emoji:'🎈', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg", desc:'Een norse weduwnaar vliegt met ballonnen naar Zuid-Amerika — met verstekeling.' },
+  { id:'inception', title:'Inception', year:2010, rating:8.8, runtime:148, genre:'Sci-Fi', emoji:'🌀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg", tmdbId:27205, desc:'Een dievenploeg steelt geheimen uit dromen — en moet er nu juist één planten.', synopsis:'Dom Cobb is een meesterdief, gespecialiseerd in het achterhalen van waardevolle geheimen in de droomstaat van een mens, wanneer de geest het meest kwetsbaar is. Hij staat nu voor de taak van "inception", het implanteren van een idee van een ander in het onderbewustzijn van een doelwit.' },
+  { id:'interstellar', title:'Interstellar', year:2014, rating:8.7, runtime:169, genre:'Sci-Fi', emoji:'🚀', platforms:["prime","hbomax"], poster:"https://image.tmdb.org/t/p/w500/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg", tmdbId:157336, desc:'Astronauten reizen door een wormgat om een nieuw thuis voor de mensheid te vinden.', synopsis:'In de toekomst zijn regeringen en economieën over de hele wereld ingestort. Voedsel is schaars, NASA bestaat niet meer en de 20ste eeuw is de grote schuldige. Wanneer een mysterieus wormgat in de ruimtetijd opengaat is het aan een groep overblijvende onderzoekers van NASA om op verkenning te gaan en de mensheid hoop te bieden.' },
+  { id:'dune2', title:'Dune: Part Two', year:2024, rating:8.5, runtime:166, genre:'Sci-Fi', emoji:'🏜️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg", tmdbId:693134, desc:'Paul Atreides verenigt de Fremen voor een wraakoorlog om Arrakis.', synopsis:'In Dune: Part Two gaat de legendarische reis van Paul Atreides verder in gezelschap van Chani en de Vrijmans, terwijl hij zint op wraak op degenen die voor de ondergang van zijn familie gezorgd hebben. Paul zal moeten kiezen tussen de liefde van zijn leven en het lot van het universum om de vreselijke toekomst te voorkomen die hij als enige voorzien heeft.' },
+  { id:'dune1', title:'Dune', year:2021, rating:8, runtime:155, genre:'Sci-Fi', emoji:'🪐', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg", tmdbId:841, desc:'Een jonge edelman komt terecht in een dodelijke strijd om de woestijnplaneet Arrakis.', synopsis:'Het jaar 10191: het gehele universum is afhankelijk van "spice" dat alleen te vinden is op de droge en afgelegen planeet Arrakis. De bewoners van de planeet zijn in afwachting van hun Verlosser die hen zal helpen in een heilige oorlog tegen het slechte Harkonnen keizerrijk. Verfilming van het klassieke boek van Frank Herbert.' },
+  { id:'oppenheimer', title:'Oppenheimer', year:2023, rating:8.3, runtime:180, genre:'Drama', emoji:'💥', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", tmdbId:872585, desc:'Het waargebeurde verhaal achter de man die de atoombom bedacht.', synopsis:'De wetenschapper J. Robert Oppenheimer leidt het zeer geheime Manhattanproject. Onder meer de Hongaarse wetenschapper Edward Teller, die de waterstofbom uitvindt, werkt eraan mee. Oppenheimer is getrouwd met Katherine, maar heeft een affaire met Jean Tatlock, een lid van de Communistische Partij. De overheid acht haar gevaarlijk voor de belangen van de Amerikaanse veiligheid. Oppenheimer is uiteindelijk verantwoordelijk voor de uitvinding van de atoombom.' },
+  { id:'barbie', title:'Barbie', year:2023, rating:6.9, runtime:114, genre:'Comedy', emoji:'🎀', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg", tmdbId:346698, desc:'Barbie krijgt een existentiële crisis en trekt de echte wereld in.', synopsis:'Barbie en Ken hebben de tijd van hun leven in het kleurrijke en schijnbaar perfecte Barbieland. Wanneer ze echter de kans krijgen om naar de echte wereld te gaan, ontdekken ze spoedig de positive en negatieve kanten van het leven onder de mensen.' },
+  { id:'glassonion', title:'Glass Onion', year:2022, rating:7.1, runtime:139, genre:'Mystery', emoji:'🧅', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vDGr1YdrlfbU9wxTOdpf3zChmv9.jpg", tmdbId:661374, desc:'Detective Benoit Blanc ontrafelt een moord op een privé-eiland.', synopsis:'De wereldberoemde detective Benoit Blanc reist naar Griekenland om een mysterie te ontrafelen waarbij een miljardair en zijn bonte vriendengroep zijn betrokken.' },
+  { id:'knivesout', title:'Knives Out', year:2019, rating:7.9, runtime:130, genre:'Mystery', emoji:'🔪', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/pThyQovXQrw2m0s9x82twj48Jq4.jpg", tmdbId:546554, desc:'Een excentrieke familie, een dode patriarch en een briljante speurder.', synopsis:'Na de dood van misdaadromanschrijver Harlan Thrombey, vlak na zijn 85e verjaardag, wordt op mysterieuze wijze de gerenommeerde detective Benoit Blanc ingeschakeld om de waarheid boven tafel te krijgen. Van Harlans disfunctionele familie tot zijn toegewijde personeel, iedereen is een verdachte.' },
+  { id:'topgun2', title:'Top Gun: Maverick', year:2022, rating:8.2, runtime:130, genre:'Actie', emoji:'✈️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg", tmdbId:361743, desc:'Maverick traint een nieuwe lichting piloten voor een onmogelijke missie.', synopsis:'Na meer dan dertig jaar dienst als één van de topvliegers van de marine is Pete Mitchell waar hij thuishoort, door de grenzen te verleggen als moedige testpiloot en de promotie in rang te ontwijken die hem aan de grond zou houden.' },
+  { id:'spiderverse2', title:'Spider-Man: Across the Spider-Verse', year:2023, rating:8.5, runtime:140, genre:'Animatie', emoji:'🕸️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg", tmdbId:569094, desc:'Miles Morales reist door het multiversum vol Spider-People.', synopsis:'Meer dan een jaar na de gebeurtenissen in het vorige deel wordt Miles Morales onverwachts bezocht door zijn vriendin Gwen Stacy. Al gauw wordt hij meegezogen in een missie om alle universums te redden van de Spot, een gevaarlijke maar onervaren tegenstander, die een catastrofale ramp kan veroorzaken. Miles en Gwen reizen samen door het multiversum en ontmoeten hun beschermers, een groep Spider-People die bekend staat als de Spider-Society, geleid door Miguel O\'Hara.' },
+  { id:'everything', title:'Everything Everywhere All at Once', year:2022, rating:7.8, runtime:139, genre:'Sci-Fi', emoji:'🥯', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/u68AjlvlutfEIcpmbYpKcdi09ut.jpg", tmdbId:545611, desc:'Een moeder springt door parallelle universa om de werkelijkheid te redden.', synopsis:'De Chinese immigrante Evelyn poogt haar belastingen in orde te brengen wanneer ze een gek avontuur beleeft. De wereld blijkt in gevaar en enkel zij kan de planeet redden. Ze verkent het universum en ontdekt hierdoor de andere levens die ze had kunnen leiden. Het is maar de vraag of ze in haar missie slaagt wanneer ze het spoor bijster wordt in het eindeloze multiversum.' },
+  { id:'thebatman', title:'The Batman', year:2022, rating:7.8, runtime:176, genre:'Actie', emoji:'🦇', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg", tmdbId:414906, desc:'Een jonge Bruce Wayne jaagt op de Riddler in een rottend Gotham.', synopsis:'Het jaar van verkiezingen in Gotham City. Potentiële kandidaten voor het burgemeesterschap worden één voor één omgebracht door een mysterieus figuur dat bij elk van hen een raadsel achterlaat, geadresseerd aan de Batman. Het wordt vervolgens Batmans missie om te achterhalen wie deze schurk is.' },
+  { id:'avengersendgame', title:'Avengers: Endgame', year:2019, rating:8.4, runtime:181, genre:'Actie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ulzhLuWrPK07P1YkdWQLZnQh1JL.jpg", tmdbId:299534, desc:'De Avengers wagen een laatste poging om Thanos\' daad terug te draaien.', synopsis:'Na de gebeurtenissen in \'Infinity War\' hebben de superhelden een grote tik gekregen. Hun gezamenlijke vijand Thanos is erin geslaagd om alle Infinity Stones te bemachtigen en heeft daarbij de helft van al het leven uitgewist. De overlevende helden, en met name de Avengers, hebben echter weinig tijd om te rouwen om hun vrienden en familie. Ze krijgen namelijk hulp aangeboden van onder meer Ant-Man en Captain Marvel. Allen slaan ze de handen in elkaar om Thanos alsnog te kunnen verslaan en om de miljarden doden die hij veroorzaakte weer tot leven te wekken.' },
+  { id:'guardians3', title:'Guardians of the Galaxy Vol. 3', year:2023, rating:7.9, runtime:150, genre:'Actie', emoji:'🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg", tmdbId:447365, desc:'De Guardians vechten voor Rocket\'s leven en hun eigen toekomst.', synopsis:'Peter Quill, nog steeds aan het bijkomen van het verlies van Gamora, moet zijn team om hem heen verzamelen om het universum te verdedigen en een van hun eigen team te beschermen. Een missie die, als ze niet met succes wordt voltooid, mogelijk zou kunnen leiden tot het einde van de Guardians zoals we die kennen.' },
+  { id:'encanto', title:'Encanto', year:2021, rating:7.2, runtime:102, genre:'Animatie', emoji:'🕯️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/4j0PNHkMr5ax3IA8tjtxcmPU3QT.jpg", tmdbId:568124, desc:'Een magische Colombiaanse familie waarvan alleen Mirabel geen gave heeft.', synopsis:'Mirabel is een 15-jarig meisje en is liefdevol, grappig en feilbaar. Ze is een echt familiemens en woont samen met haar familie in Colombia. Haar hele familie beschikt over magische krachten en woont in een magisch huis. Mirabel zelf beschikt echter nog niet over magische krachten, maar dan is het toch aan haar om hun huis, de Encanto, te redden.' },
+  { id:'soul', title:'Soul', year:2020, rating:8, runtime:100, genre:'Animatie', emoji:'🎹', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6jmppcaubzLF8wkXM36ganVISCo.jpg", tmdbId:508442, desc:'Een jazzmuzikant belandt tussen leven en dood en zoekt zijn vonk.', synopsis:'Wat maakt jou nou eigenlijk jou?  In de gloednieuwe film \'Soul\' van Pixar Animation Studios maak je kennis met Joe Gardner. Joe is muziekleraar op een middelbare school en krijgt de kans om in de beste jazzclub in de stad te spelen. Eén klein missertje zorgt er echter voor dat hij in The Great Before belandt, een magische plek waar nieuwe zielen hun persoonlijkheid, maniertjes en interesses krijgen voordat ze naar de aarde gaan. Joe is vastberaden om terug te keren naar zijn oude leven en schakelt de hulp in van de wijze ziel 22, die dat hele menselijke gedoe maar raar vindt. Terwijl Joe aan 22 wil laten zien wat er zo leuk is aan het leven, ontdekt hij wellicht antwoorden op een aantal levensvragen.' },
+  { id:'wakanda', title:'Black Panther: Wakanda Forever', year:2022, rating:6.7, runtime:161, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/sv1xJUazXeYqALzczSZ3O6nkH75.jpg", tmdbId:505642, desc:'Wakanda rouwt en verdedigt zich tegen een onderwaterrijk.', synopsis:'Koningin Ramonda, Shuri, M\'Baku, Okoye en de Dora Milaje vechten om hun natie te beschermen tegen tussenkomende wereldmachten na de dood van koning T\'Challa. Terwijl de Wakandans ernaar streven hun volgende hoofdstuk te omarmen, moeten de helden samenwerken met de hulp van War Dog Nakia en Everett Ross en een nieuwe weg banen voor het koninkrijk Wakanda.' },
+  { id:'thewhale', title:'The Whale', year:2022, rating:7.7, runtime:117, genre:'Drama', emoji:'🐋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/jQ0gylJMxWSL490sy0RrPj1Lj7e.jpg", tmdbId:785084, desc:'Een teruggetrokken leraar probeert zich met zijn dochter te verzoenen.', synopsis:'Een teruggetrokken leraar Engels met ernstig overgewicht probeert opnieuw contact te leggen met zijn vervreemde tienerdochter voor een laatste kans op verlossing.' },
+  { id:'flowermoon', title:'Killers of the Flower Moon', year:2023, rating:7.6, runtime:206, genre:'Drama', emoji:'🌙', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/dB6Krk806zeqd0YNp2ngQ9zXteH.jpg", tmdbId:466420, desc:'Moorden op de rijke Osage-stam onthullen een gruwelijk complot.', synopsis:'Aan het begin van de 20ste eeuw maakte de vondst van olie de indianen van de Osage Nation plotseling een van de rijkste volken ter wereld. Hun rijkdom trok onmiddellijk blanke profiteurs aan, die de Osage door middel van manipulatie, afpersing en diefstal zo veel mogelijk geld afhandig maakten en ze daarna vermoordden.' },
+  { id:'wednesday', title:'Wednesday', year:2022, rating:8.1, runtime:50, genre:'Mystery', emoji:'🖤', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gl66K7zRdtNYGrxyS2YDUP5ASZd.jpg", tmdbId:1317660, desc:'Wednesday Addams lost een mysterie op haar bizarre kostschool op.', synopsis:'A friend group of 7 goes through their school year, just existing.' },
+  { id:'rednotice', title:'Red Notice', year:2021, rating:6.3, runtime:118, genre:'Actie', emoji:'💎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lAXONuqg41NwUMuzMiFvicDET9Y.jpg", tmdbId:512195, desc:'Een FBI-profiler en twee meesterdieven jagen op hetzelfde kleinood.', synopsis:'Een Interpol-agent krijgt de taak de meest gezochte kunstdief ter wereld op te sporen. Tijdens zijn zoektocht naar de vrouwelijke crimineel kruist zijn pad dat van een beruchte zwendelaar. Noodgedwongen slaan ze de handen in elkaar.' },
+  { id:'graymangray', title:'The Gray Man', year:2022, rating:6.4, runtime:122, genre:'Actie', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8cXbitsS6dWQ5gfMTZdorpAAzEH.jpg", tmdbId:725201, desc:'Een CIA-huurling wordt opgejaagd nadat hij vuile geheimen ontdekt.', synopsis:'Een tot moord veroordeelde gevangene wordt gerekruteerd als huurmoordenaar voor de CIA. Wanneer hij tijdens een missie in bezit komt van compromitterende informatie over de organisatie, wordt hij zelf het doelwit.' },
+  { id:'dontlookup', title:'Don\'t Look Up', year:2021, rating:7.2, runtime:138, genre:'Comedy', emoji:'☄️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/th4E1yqsE8DGpAseLiUrI60Hf8V.jpg", tmdbId:646380, desc:'Twee astronomen waarschuwen voor een komeet — niemand luistert.', synopsis:'Twee astronomen gaan op mediatour om te waarschuwen dat er een allesvernietigende komeet op weg is richting de aarde. Maar niemand is geïnteresseerd in echt nieuws.' },
+  { id:'themenu', title:'The Menu', year:2022, rating:7.2, runtime:107, genre:'Mystery', emoji:'🍽️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fPtUgMcLIboqlTlPrq0bQpKK8eq.jpg", tmdbId:593643, desc:'Een exclusief diner verandert in een dodelijk culinair spel.', synopsis:'De geliefden Margot en Tyler reizen naar een eiland. Daar mogen ze in een exclusief restaurant uitgebreid dineren onder begeleiding van de chef Slowik. Tijdens het evenement heeft de chef schokkende verrassingen voor zijn gasten in petto.' },
+  { id:'nope', title:'Nope', year:2022, rating:6.8, runtime:130, genre:'Horror', emoji:'🛸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/AcKVlWaNVVVFQwro3nLXqPljcYA.jpg", tmdbId:762504, desc:'Ranch-eigenaren filmen iets onverklaarbaars boven hun vallei.', synopsis:'\'Nope\' volgt enkele inwoners aan de eenzame kloof van het binnenland in Californië. Ze zijn als paardentrainers betrokken bij het maken van een nieuw filmproject. Ze worden vervolgens getuige van een griezelige en huiveringwekkende ontdekking.' },
+  { id:'getout', title:'Get Out', year:2017, rating:7.7, runtime:104, genre:'Horror', emoji:'🫖', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mE24wUCfjK8AoBBjaMjho7Rczr7.jpg", tmdbId:419430, desc:'Een weekend bij de ouders van zijn vriendin loopt griezelig uit de hand.', synopsis:'Chris, een Afro-Amerikaanse jongen, reist met zijn blanke vriendin Rose naar het zuidelijk gelegen landgoed van haar familie om kennis te maken met haar ouders Missy en Dean. Hij doet een serie vreemde ontdekkingen en komt er achter dat er een duistere reden is waarom hij uitgenodigd werd.' },
+  { id:'quietplace', title:'A Quiet Place', year:2018, rating:7.5, runtime:90, genre:'Horror', emoji:'🤫', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nAU74GmpUk7t5iklEp3bufwDq4n.jpg", tmdbId:447332, desc:'Een gezin overleeft in stilte tussen wezens die op geluid jagen.', synopsis:'Terwijl de wereld wordt geterroriseerd door onbekende wezens die jagen op geluid, probeert een gezin te overleven. De wezens kunnen met hun extreem gevoelige gehoor echter al het minste geluid oppikken.' },
+  { id:'parasite', title:'Parasite', year:2019, rating:8.5, runtime:132, genre:'Drama', emoji:'🪜', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/4DGPORlVIDIQvsuSDnM4uXKMjWS.jpg", tmdbId:48311, desc:'Een arme familie nestelt zich sluw in het leven van een rijke familie.', synopsis:'Paul Dean heeft een dodelijke parasiet gecreëerd die nu aan zijn maag vastzit. Hij en zijn vrouwelijke metgezel, Patricia Welles, moeten een manier vinden om het te vernietigen, terwijl ze ook proberen Ricus, zijn rednecks en een kwaadaardige overheidsagent genaamd Merchant te ontwijken.' },
+  { id:'lalaland', title:'La La Land', year:2016, rating:8, runtime:128, genre:'Romance', emoji:'🎷', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/uDO8zWDhfWwoFdKS4fzkUJt0Rf0.jpg", tmdbId:313369, desc:'Een jazzpianist en een actrice in spe verliezen zich in liefde en ambitie.', synopsis:'La La Land is een moderne variant op de klassieke Hollywood-musical en een ode aan iedereen die durft te dromen.  Mia droomt ervan actrice te worden in Hollywood.' },
+  { id:'pastlives', title:'Past Lives', year:2023, rating:7.8, runtime:106, genre:'Romance', emoji:'🌸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg", tmdbId:666277, desc:'Twee jeugdvrienden ontmoeten elkaar na twintig jaar opnieuw.', synopsis:'Nora en Hae Sung, twee diep verbonden jeugdvrienden, worden uit elkaar gerukt als Nora’s familie vanuit Zuid-Korea naar Canada emigreert. Twaalf jaar later studeert Nora in New York en hervinden de twee elkaar via het internet. Ze fantaseren over een wederzien, maar de afstand doet het contact verwateren. Nog eens twaalf jaar later is Nora inmiddels getrouwd en wordt ze tijdens een allesbepalende week herenigd met haar jeugdliefde, als hij haar opzoekt in New York.' },
+  { id:'anyonebutyou', title:'Anyone But You', year:2023, rating:6.2, runtime:104, genre:'Romance', emoji:'💕', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/5qHoazZiaLe7oFBok7XlUhg96f2.jpg", tmdbId:1072790, desc:'Twee exen doen op een bruiloft alsof ze een setje zijn.', synopsis:'Brent en Brent lijken het perfecte stel, maar na een geweldige eerste date gebeurt er iets waardoor hun vurige aantrekkingskracht afkoelt tot het vriespunt – totdat ze onverwachts met elkaar worden opgezadeld op een bruiloft in Australië. En wat doen twee volwassen mensen dan? Net doen alsof ze een stel zijn natuurlijk. Ook wil Jaell Brent afpakken' },
+  { id:'fallguy', title:'The Fall Guy', year:2024, rating:6.9, runtime:126, genre:'Actie', emoji:'🎬', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/e7olqFmzcIX5c23kX4zSmLPJi8c.jpg", tmdbId:746036, desc:'Een stuntman zoekt een verdwenen filmster én zijn ex terug.', synopsis:'Stuntman Colt Seavers heeft net een ongeluk achter de rug en moet een vermiste filmster opsporen, een samenzwering oplossen en proberen de liefde van zijn leven terug te winnen terwijl hij nog steeds zijn dagelijkse werk doet.' },
+  { id:'mi7', title:'Mission: Impossible - Dead Reckoning', year:2023, rating:7.7, runtime:163, genre:'Actie', emoji:'🕴️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg", tmdbId:575264, desc:'Ethan Hunt jaagt op een wapen dat de wereld kan ontwrichten.', synopsis:'In Mission: Impossible - Dead Reckoning Part One beginnen Ethan Hunt en zijn IMF-team aan hun gevaarlijkste missie tot nu toe: het opsporen van een angstaanjagend nieuw wapen dat de hele mensheid bedreigt, voordat het in verkeerde handen valt. Er volgt een dodelijke race rond de wereld waarbij controle over de toekomst en het lot van de wereld op het spel staan en Ethan wordt geconfronteerd met duistere krachten uit zijn verleden. In zijn krachtmeting met een mysterieuze en machtige vijand moet Ethan noodgedwongen de gedachte overwegen dat niets belangrijker kan zijn dan zijn missie, zelfs niet het leven van degenen die hem het meest dierbaar zijn.' },
+  { id:'johnwick4', title:'John Wick: Chapter 4', year:2023, rating:7.7, runtime:169, genre:'Actie', emoji:'🐕', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg", tmdbId:603692, desc:'Wick zoekt vrijheid in een wereldwijde oorlog tegen de High Table.', synopsis:'De strijd tussen John Wick en de High Table blijft voortduren. De prijs op het hoofd van John Wick lijkt steeds meer te stijgen. Van New York tot aan Parijs en van Osaka tot aan Berlijn, John zal het op moeten nemen tegen de sterkste tegenstanders tot nu toe.' },
+  { id:'sicario', title:'Sicario', year:2015, rating:7.6, runtime:121, genre:'Thriller', emoji:'🚙', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lz8vNyXeidqqOdJW9ZjnDAMb5Vr.jpg", tmdbId:273481, desc:'Een FBI-agente raakt verstrikt in de schimmige drugsoorlog.', synopsis:'Kate Macy is een jonge FBI-agente die deelneemt aan een geheime CIA-operatie om de baas van een Mexicaans drugskartel uit te schakelen. Samen met twee huurlingen steekt ze in Tucson, Arizona de grens over naar Mexico om de drugsbaas te elimineren.' },
+  { id:'prisoners', title:'Prisoners', year:2013, rating:8.2, runtime:153, genre:'Thriller', emoji:'🕯️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/jsS3a3ep2KyBVmmiwaz3LvK49b1.jpg", tmdbId:146233, desc:'Een vader neemt het recht in eigen hand als zijn dochter verdwijnt.', synopsis:'Keller Dover wordt geconfronteerd met de ergste nachtmerrie van een ouder. Zijn zes jaar oude dochter Anna en haar vriendinnetje Joy worden vermist.' },
+  { id:'gonegirl', title:'Gone Girl', year:2014, rating:8.1, runtime:149, genre:'Thriller', emoji:'📰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ts996lKsxvjkO2yiYG0ht4qAicO.jpg", tmdbId:210577, desc:'Een vrouw verdwijnt en alle ogen richten zich op haar man.', synopsis:'Nick en Amy Dunne staan op het punt om hun vijfde huwelijksjaar te vieren. De avond vóór hun jubileum begint Nick echter enige twijfels te krijgen over de stabiliteit van zijn huwelijk en gaat hij op bezoek bij zijn tweelingzus Margo voor advies. Als hij thuis komt blijkt Amy plots verdwenen te zijn. Hij schakelt direct de politie in en na enig onderzoek blijken alle aanwijzingen naar slechts één persoon te leiden: Nick.' },
+  { id:'whiplash', title:'Whiplash', year:2014, rating:8.5, runtime:106, genre:'Drama', emoji:'🥁', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg", tmdbId:244786, desc:'Een jonge drummer wordt tot het uiterste gedreven door een tirannieke docent.', synopsis:'Andrew is een veelbelovende 19-jarige drummer die studeert aan een berucht conservatorium in Manhattan. Hij wil echter niet zo maar een muzikant zijn. Achtervolgd door de mislukte carrière van zijn vader, die schrijver was, en de angst dat het wel eens genetisch kan zijn, droomt hij ervan om de top te bereiken.' },
+  { id:'socialnetwork', title:'The Social Network', year:2010, rating:7.8, runtime:120, genre:'Drama', emoji:'💻', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/n0ybibhJtQ5icDqTp8eRytcIHJx.jpg", tmdbId:37799, desc:'De turbulente geboorte van Facebook en de vriendschappen die sneuvelden.', synopsis:'Herfst, 2003. Na een pijnlijke relatie beëindiging met zijn vriendin Erica, besluit Harvard student Mark Zuckerburg zijn frustraties te uitten door erover te bloggen op zijn computer. Na een aantal drankjes krijgt hij samen met zijn kamergenoot Eduardo Saverin het geweldige idee om foto’s op internet te zetten van de vrouwelijke medestudenten en ze door te sturen naar andere colleges om ze vervolgens te laten beoordelen op uiterlijk.' },
+  { id:'madmax', title:'Mad Max: Fury Road', year:2015, rating:8.1, runtime:120, genre:'Actie', emoji:'🏎️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/hA2ple9q4qnwxp3hKVNhroipsir.jpg", tmdbId:76341, desc:'Een woeste achtervolging door een post-apocalyptische woestijn.', synopsis:'De film speelt zich af in een grimmig woestijnlandschap waar de mensheid is gebroken en waar bijna iedereen gek is en vecht voor de noodzakelijkheden van het leven. In deze wereld van vuur en bloed zijn twee rebellen op de vlucht die misschien wel de orde zouden kunnen herstellen.' },
+  { id:'bladerunner2049', title:'Blade Runner 2049', year:2017, rating:8, runtime:164, genre:'Sci-Fi', emoji:'🌆', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg", tmdbId:335984, desc:'Een blade runner ontdekt een geheim dat de samenleving kan ontwrichten.', synopsis:'Dertig jaar na de gebeurtenissen in de eerste film ontdekt een nieuwe Blade Runner, LAPD agent K, een verborgen geheim dat wat nog overblijft van de huidige maatschappij mogelijk in chaos kan doen verzinken.' },
+  { id:'arrival', title:'Arrival', year:2016, rating:7.9, runtime:116, genre:'Sci-Fi', emoji:'🛸', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg", tmdbId:329865, desc:'Een taalkundige probeert te communiceren met geland buitenaards leven.', synopsis:'Nadat buitenaardse wezens op de aarde landen, wordt een taalkundige gerekruteerd door de Amerikaanse overheid om de bedoelingen van de wezens te ontcijferen. Terwijl ze de taal van de wezens begint te begrijpen, krijgt ze te maken met een aantal flashbacks.' },
+  { id:'grandbudapest', title:'The Grand Budapest Hotel', year:2014, rating:8.1, runtime:99, genre:'Comedy', emoji:'🛎️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg", tmdbId:120467, desc:'Een legendarische conciërge en zijn page beleven een absurd avontuur.', synopsis:'\'The Grand Budapest Hotel\' vertelt het verhaal van een legendarische hotelmanager van een beroemd Europees hotel. Tussen de oorlogen in raakt hij bevriend met een jonge medewerker die een vertrouweling van hem wordt.' },
+  { id:'jojorabbit', title:'Jojo Rabbit', year:2019, rating:7.9, runtime:108, genre:'Comedy', emoji:'🐰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/7GsM4mtM0worCtIVeiQt28HieeN.jpg", tmdbId:515001, desc:'Een jongen in nazi-Duitsland heeft Hitler als ingebeelde vriend.', synopsis:'Omdat hij naar eigen zeggen geen enkele acteur kon vinden die een komische versie van Adolf Hitler wilde spelen, deed regisseur Taika Waititi het maar zelf.  Hij is het denkbeeldige vriendje van een tienjarige jongen die lid is van de Hitler-Jugend, maar vooral een watje is. Tot ergernis van Der Führer die als een sluwe vos de jongen probeert te manipuleren. Met hilarische en pijnlijke momenten tot gevolg.  Jojo Rabbit is een wrange komedie die vaak schuurt en soms uit de bocht vliegt. Geen enkel facet van het nazitijdperk wordt onder het tapijt geveegd. Jojo ziet met eigen ogen hoe tegenstanders van het regime worden opgehangen. Zijn moeder (een formidabele rol van Scarlett Johansson) zit in het verzet, herbergt een jong Joods meisje als onderduiker, maar laat haar zoon zelf ontdekken hoe deze wereld in elkaar zit.' },
+  { id:'nowayhome', title:'Spider-Man: No Way Home', year:2021, rating:8.2, runtime:148, genre:'Actie', emoji:'🕷️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg", tmdbId:634649, desc:'Spider-Man scheurt het multiversum open met desastreuze gevolgen.', synopsis:'Peter Parker is ontmaskerd en kan zijn normale leven niet langer scheiden van de hoge inzet van een superheld zijn.  Wanneer hij om hulp vraagt ​​van Doctor Strange, wordt de inzet nog gevaarlijker, waardoor hij moet ontdekken wat het werkelijk betekent om Spider-Man te zijn.' },
+  { id:'holdovers', title:'The Holdovers', year:2023, rating:7.9, runtime:133, genre:'Comedy', emoji:'❄️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/VHSzNBTwxV8vh7wylo7O9CLdac.jpg", tmdbId:840430, desc:'Een norse leraar zit met een leerling vast op een verlaten campus.', synopsis:'Een chagrijnige instructeur op een middelbare school in New England wordt gedwongen tijdens de kerstvakantie op de campus te blijven om op te passen voor het handjevol studenten die nergens heen kunnen. Uiteindelijk vormt hij een onwaarschijnlijke band met een van hen – een beschadigde, slimme onruststoker – en met de chef-kok van de school, die zojuist een zoon heeft verloren in Vietnam.' },
+  { id:'wolfwallstreet', title:'The Wolf of Wall Street', year:2013, rating:8.2, runtime:180, genre:'Drama', emoji:'💸', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/kW9LmvYHAaS9iA0tHmZVq8hQYoq.jpg", tmdbId:106646, desc:'De spectaculaire opkomst en ondergang van een corrupte beursmagnaat.', synopsis:'Eind jaren 80. Jordan Belfort is een aan drugs, drank en seks verslaafde effectenmakelaar, die door fraude multimiljonair wordt. De voormalige meubelhandelaar Danny Porush is hierbij zijn zakenpartner.' },
+  { id:'django', title:'Django Unchained', year:2012, rating:8.5, runtime:165, genre:'Actie', emoji:'🤠', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg", tmdbId:68718, desc:'Een bevrijde slaaf en een premiejager zoeken zijn vrouw in het diepe Zuiden.', synopsis:'Django Unchained speelt zich af in het zuiden van Amerika, twee jaar voor het uitbreken van de Amerikaanse Burgeroorlog. Django is een slaaf, wiens brute verleden hem in contact brengt met Dr. King Schultz, een Duitse premiejager.' },
+  { id:'darkknight', title:'The Dark Knight', year:2008, rating:9, runtime:152, genre:'Actie', emoji:'🦇', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", tmdbId:155, desc:'Batman neemt het op tegen de chaotische Joker die Gotham terroriseert.', synopsis:'Bruce Wayne, alias Batman, en Lt. James Gordon bundelen hun krachten met de nieuw aangewezen Officier van Justitie Harvey Dent. Samen proberen zij de chaos tegen te gaan die Gotham momenteel teistert, veroorzaakt door niemand minder dan Batmans ergste vijand, The Joker.' },
+  { id:'joker', title:'Joker', year:2019, rating:8.4, runtime:122, genre:'Drama', emoji:'🃏', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg", tmdbId:475557, desc:'Een mislukte komiek glijdt af naar waanzin en wordt een symbool van opstand.', synopsis:'De jaren 80. Een clown, Arthur Fleck genaamd, voelt zich uitgekotst en verstoten door de maatschappij. Geleidelijk aan wordt hij krankzinnig, en ontpopt hij zich van vriendelijke, vrolijke clown tot schurk, beter bekend als \'de Joker\'. Iemand die kickt op haat en het creëren van chaos.' },
+  { id:'shutterisland', title:'Shutter Island', year:2010, rating:8.2, runtime:138, genre:'Thriller', emoji:'🌊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg", tmdbId:11324, desc:'Een marshal onderzoekt een verdwijning op een eiland vol duistere geheimen.', synopsis:'1954. De U.S. Marshalls Teddy Daniels en zijn nieuwe partner Chuck Aule gaan op zoek naar een moordenares die ontsnapt is uit T.B.S.-kliniek \'Ashecliffe Hospital\' voor langgestraften op Shutter Island, een eiland voor de kust van Boston, Massachusetts.' },
+  { id:'departed', title:'The Departed', year:2006, rating:8.5, runtime:151, genre:'Thriller', emoji:'🚔', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nT97ifVT2J1yMQmeq20Qblg61T.jpg", tmdbId:1422, desc:'Een mol bij de politie en een undercover agent jagen op elkaar.', synopsis:'Colin Sullivan werkt voor de grote en beruchte gangster Frank Costello en krijgt de taak te infiltreren in het politiekorps van Boston. Tegelijkertijd werkt undercover-agent Billy Costigan zich op in de wereld van Costello en probeert diens vertrouwen te winnen.' },
+  { id:'pulpfiction', title:'Pulp Fiction', year:1994, rating:8.9, runtime:154, genre:'Misdaad', emoji:'🍔', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg", tmdbId:680, desc:'Verweven verhalen van huurmoordenaars, een bokser en een gangsterbaas.', synopsis:'Jules en Vincent werken voor de machtige misdadiger Marsellus Wallace. Vincent komt in de problemen als hij Mia, de vrouw van Wallace, een avondje gezelschap moet houden. Ondertussen is Wallace verwikkeld in een deal met de bokser Butch, die Wallace belazert en er met z\'n geld vandoor gaat.' },
+  { id:'shawshank', title:'The Shawshank Redemption', year:1994, rating:9.3, runtime:142, genre:'Drama', emoji:'⛓️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg", tmdbId:278, desc:'Een onschuldig veroordeelde bankier vindt hoop in een meedogenloze gevangenis.', synopsis:'Andy Dufresne betrapt zijn vrouw met een ander en wordt vervolgens beschuldigd van de moord op zijn vrouw en haar minnaar. Hij houdt vol dat hij onschuldig is, maar krijgt toch tweemaal levenslang in de strenge gevangenis Shawshank.' },
+  { id:'goodfellas', title:'Goodfellas', year:1990, rating:8.7, runtime:145, genre:'Misdaad', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg", tmdbId:769, desc:'Het waargebeurde leven binnen de meedogenloze New Yorkse maffia.', synopsis:'Henry Hill wil al van jongs af aan bij de maffia. Gangster Jimmy \'The Gent\' Conway staat in hoog aanzien bij zijn misdaadcollega\'s. Hij neemt de jonge Henry onder zijn hoede en leert hem alle fijne kneepjes van het gangstervak.' },
+  { id:'gladiator', title:'Gladiator', year:2000, rating:8.5, runtime:155, genre:'Actie', emoji:'⚔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/wN2xWp1eIwCKOD0BHTcErTBv1Uq.jpg", tmdbId:98, desc:'Een verraden generaal wordt gladiator en zint op wraak tegen de keizer.', synopsis:'De Romeinse generaal Maximus wordt ter dood veroordeeld door Commodus, de boosaardige troonopvolger van Marcus Aurelius. Maximus kan op het nippertje ontsnappen, maar zijn vrouw en zoon worden bruut vermoord.' },
+  { id:'savingprivate', title:'Saving Private Ryan', year:1998, rating:8.6, runtime:169, genre:'Oorlog', emoji:'🪖', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/uqx37cS8cpHg8U35f9U5IBlrCV3.jpg", tmdbId:857, desc:'Soldaten trekken door bezet Frankrijk om één para terug te halen.', synopsis:'Tijdens de geallieerde invasie in Normandië komen twee broers om het leven. Een derde broer sneuvelt gelijktijdig in Nieuw-Guinea tijdens gevechten met de Japanners. Wanneer bekend wordt dat een vierde broer vermist is geraakt op het Franse platteland, wordt een missie gestart om hem veilig thuis te brengen.' },
+  { id:'titanic', title:'Titanic', year:1997, rating:7.9, runtime:194, genre:'Romance', emoji:'🚢', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg", tmdbId:597, desc:'Een onmogelijke liefde aan boord van het schip dat ten onder ging.', synopsis:'De 17-jarige rijke Rose DeWitt Bukater wordt door haar familie gedwongen om zich met Cal Hockley te verloven en binnenkort te gaan trouwen. Tijdens de eerste tocht over de Atlantische zee van de Titanic, een gigantisch passagiersschip dat onzinkbaar wordt geacht, besluit ze zelfmoord te plegen.' },
+  { id:'avatarwater', title:'Avatar: The Way of Water', year:2022, rating:7.6, runtime:192, genre:'Sci-Fi', emoji:'💧', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg", tmdbId:76600, desc:'De familie Sully vlucht en vecht in de oceanen van Pandora.', synopsis:'14 jaar na de gebeurtenissen uit het eerste deel is er een hoop veranderd voor Jake en Neytiri, die ondertussen hun plekje hebben gevonden in het regenwoud van Pandora dat ze thuis kunnen noemen. De twee hebben samen drie Na\'vi kinderen en een geadopteerd vierde mensenkind genaamd Spider. Jake en Neytiri doen er alles aan om dit gezin bij elkaar te houden, maar wanneer ze opnieuw bedreigd worden door RDA-mijnwerkers zijn ze gedwongen hun thuis te verlaten. Zo komen ze terecht in een geheel andere omgeving bij een rif, waar de Metkayina clan woont. Deze omgeving komt echter niet zonder gevaar, zeker niet wanneer blijkt dat het gezin van Jake en Neytiri zich bevindt in een cultuur die ze niet kennen.' },
+  { id:'moana', title:'Moana', year:2016, rating:7.6, runtime:107, genre:'Animatie', emoji:'🌊', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/zKVgiv5qHCvCLT4A2ymJi5QeXDH.jpg", tmdbId:1108427, desc:'Een dappere eilandprinses vaart uit om haar volk te redden.', synopsis:'In het oude Polynesië, wanneer een vreselijke vloek van Maui het eiland van een onstuimig stamhoofd bereikt, beantwoordt zijn eigenzinnige dochter de oproep van de oceaan om de halfgod te zoeken om de zaken recht te zetten. Live-action bewerking van de Disney-animatiefilm \'Moana\' uit 2016' },
+  { id:'coco', title:'Coco', year:2017, rating:8.4, runtime:105, genre:'Animatie', emoji:'💀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg", tmdbId:354912, desc:'Een muzikale jongen belandt in het kleurrijke Land van de Doden.', synopsis:'Miguel droomt ervan om een succesvol muzikant te worden. Ondanks dat muziek al generaties lang uit zijn familie wordt verbannen, is het Miguel’s grootste droom om net zo groot te worden als zijn idool, Ernesto de la Cruz.' },
+  { id:'insideout2', title:'Inside Out 2', year:2024, rating:7.6, runtime:96, genre:'Animatie', emoji:'🧠', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg", tmdbId:1022789, desc:'Nieuwe emoties zorgen voor chaos in het hoofd van tiener Riley.', synopsis:'Het hoofdkwartier van tiener Riley wordt plotseling gesloopt om plaats te maken voor iets geheel onverwachts: nieuwe emoties! Vreugde, Verdriet, Woede, Angst en Walging, die in alle opzichten al lange tijd succesvol zijn, weten niet goed hoe ze zich moeten voelen als angst de kop opsteekt. En het lijkt erop dat ze niet de enige is.' },
+  { id:'deadpool', title:'Deadpool', year:2016, rating:8, runtime:108, genre:'Actie', emoji:'🩸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3E53WEZJqP6aM84D8CckXx4pIHw.jpg", tmdbId:293660, desc:'Een grofgebekte huurling met regeneratiekracht jaagt op de man die hem maakte.', synopsis:'Wade Wilson is een speciale agent van de overheid die, nadat hij onderworpen is aan een behandeling die hem bovenmenselijke genezende krachten heeft gegeven, een alter-ego in de vorm van \'Deadpool\' aanneemt.' },
+  { id:'logan', title:'Logan', year:2017, rating:8.1, runtime:137, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fnbjcRDYn6YviCcePDnGdyAkYsB.jpg", tmdbId:263115, desc:'Een verouderde Wolverine beschermt een jong mutantenmeisje op de vlucht.', synopsis:'In 2029 is de mutant bevolking aanzienlijk geslonken en de X-Men zijn ontbonden. Logan zijn vermogen om zichzelf te genezen is slinkende en hij ontfermt zich nu samen met de mutant Caliban  over de zieke Professor X in een schuilplaats op de grens met Mexico.' },
+  { id:'thorragnarok', title:'Thor: Ragnarok', year:2017, rating:7.9, runtime:131, genre:'Actie', emoji:'⚡', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/rzRwTcFvttcN1ZpX2xv4j3tSdJu.jpg", tmdbId:284053, desc:'Thor moet ontsnappen en Asgard redden van de godin van de dood.', synopsis:'Loki heerst nu over Asgard, nadat hij zijn vader heeft verbannen, maar niemand beseft welke gevaren deze verbanning met zich meebracht. Nu Odin er niet meer is om Asgard te beschermen, weet Hela , de godin van de dood, Asgard binnen te dringen en de macht over te nemen.' },
+  { id:'freeguy', title:'Free Guy', year:2021, rating:7.1, runtime:115, genre:'Comedy', emoji:'🕹️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/dxraF0qPr1OEgJk17ltQTO84kQF.jpg", tmdbId:550988, desc:'Een NPC in een videogame ontdekt dat hij zijn eigen lot kan kiezen.', synopsis:'Guy (Ryan Reynolds) is een bankmedewerker die elke dag dezelfde routine volgt. Hij wordt wakker, gaat naar zijn werk, overleeft een bankoverval, speelt en verliest altijd een potje softbal en gaat nadien wat met zijn teamgenoten drinken voordat hij naar bed gaat. Op een dag vindt hij echter een bijzondere bril. Eenmaal opgezet ontdekt hij dat hij in een videospel zit.' },
+  { id:'themartian', title:'The Martian', year:2015, rating:8, runtime:144, genre:'Sci-Fi', emoji:'👨‍🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3ndAx3weG6KDkJIRMCi5vXX6Dyb.jpg", tmdbId:286217, desc:'Een astronaut overleeft alleen op Mars en vecht om naar huis te komen.', synopsis:'Zes dagen geleden werd astronaut Mark Watney een van de eerste mensen die een voet op Mars zette. Nu is hij er zeker van dat hij de eerste zal zijn die er zal sterven. Na een zandstorm blijft hij alleen achter.' },
+  { id:'bohemian', title:'Bohemian Rhapsody', year:2018, rating:7.9, runtime:134, genre:'Muziek', emoji:'🎤', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/lHu1wtNaczFPGFDTrjCSzeLPTKN.jpg", tmdbId:424694, desc:'Het verhaal van Queen en het onvergetelijke optreden van Freddie Mercury.', synopsis:'Bohemian Rhapsody is een ode aan de legendarische rockband Queen, hun unieke muziek en hun buitengewone zanger en frontman Freddie Mercury. Freddie vocht tegen stereotypen, trotseerde conventies en groeide zo uit tot een van de meest geliefde entertainers ter wereld. De film vertelt niet alleen over de bliksemsnelle opkomst van de band, hun revolutionaire geluid en Freddie\'s solocarrière, maar ook over de hereniging en een van de meest legendarische optredens in de geschiedenis van de rockmuziek.' },
+  { id:'revenant', title:'The Revenant', year:2015, rating:8, runtime:156, genre:'Avontuur', emoji:'🐻', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ji3ecJphATlVgWNY0B0RVXZizdf.jpg", tmdbId:281957, desc:'Een pelsjager kruipt door de wildernis, gedreven door pure wraak.', synopsis:'The Revenant is een episch avontuur van één man over overleven en de buitengewone kracht van de menselijke geest. Diep in de Amerikaanse wildernis wordt jager Hugh Glass voor dood achtergelaten door John Fitzgerald, een onbetrouwbaar lid van zijn gezelschap. Met alleen zijn wil als wapen, begint Glass aan een meedogenloze missie. Hij moet zich een weg zien te banen door een levensgevaarlijke omgeving, en een strenge winter en onderling strijdende stammen overleven om wraak te kunnen nemen op Fitzgerald.' },
+  { id:'1917', title:'1917', year:2019, rating:8.2, runtime:119, genre:'Oorlog', emoji:'🎖️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/iZf0KyrE25z1sage4SYFLCCrMi9.jpg", tmdbId:530915, desc:'Twee soldaten racen door vijandelijk gebied om een aanval te stoppen.', synopsis:'Tijdens de Eerste Wereldoorlog nemen de jonge, Britse soldaten Schofield en Blake deel aan een gevaarlijke missie. In een race tegen de klok proberen ze op vijandig terrein een boodschap te overhandigen die de levens van honderden soldaten, waaronder Blakes eigen broer, kan redden.' },
+  { id:'bullettrain', title:'Bullet Train', year:2022, rating:7.3, runtime:127, genre:'Actie', emoji:'🚄', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/j8szC8OgrejDQjjMKSVXyaAjw3V.jpg", tmdbId:718930, desc:'Rivaliserende huurmoordenaars zitten vast op dezelfde hogesnelheidstrein.', synopsis:'In Bullet Train zien we Ladybug, een huurmoordenaar die zijn werk voortaan vreedzaam wil verrichten nadat zijn klussen te vaak zijn ontspoord. Het lot lijkt hem niet gunstig gezind, aan boord van de snelste trein op aarde stevent hij af op een confrontatie met dodelijke huurmoordenaars. Deze huurmoordenaars van over de hele wereld hebben stuk voor stuk verwante, maar tegenstrijdige doelen. Hij moet het voor elkaar zien te krijgen om van de trein af te komen.' },
+  { id:'extraction', title:'Extraction', year:2020, rating:6.7, runtime:116, genre:'Actie', emoji:'💣', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/nygOUcBKPHFTbxsYRFZVePqgPK6.jpg", tmdbId:545609, desc:'Een huursoldaat moet de ontvoerde zoon van een drugsbaron bevrijden.', synopsis:'De nieuwste missie van een geharde huurling wordt een louterende race om te overleven wanneer hij naar Bangladesh wordt gestuurd om de ontvoerde zoon van een drugsbaas te redden.' },
+  { id:'enolaholmes', title:'Enola Holmes', year:2020, rating:6.6, runtime:123, genre:'Mystery', emoji:'🔎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/riYInlsq2kf1AWoGm80JQW5dLKp.jpg", tmdbId:497582, desc:'De pittige jongere zus van Sherlock lost haar eigen eerste zaak op.', synopsis:'Enola Holmes, de jongere zus van Sherlock en Mycroft, wordt in de negentiende eeuw door haar excentrieke moeder Eudoria opgevoed. Wanneer haar moeder op haar zestiende verjaardag spoorloos verdwijnt, vindt Enola verborgen aanwijzingen die haar moeder heeft achtergelaten. Om haar zoektocht te vergemakkelijken, geeft Enola zich uit voor een man en trekt ze naar Londen.' },
+  { id:'allquiet', title:'All Quiet on the Western Front', year:2022, rating:7.8, runtime:148, genre:'Oorlog', emoji:'🥀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2IRjbi9cADuDMKmHdLK7LaqQDKA.jpg", tmdbId:49046, desc:'Een jonge Duitse soldaat ontdekt de gruwel van de loopgraven.', synopsis:'De 17-jarige Paul gaat in de Eerste Wereldoorlog naar het westfront, maar zijn enthousiasme maakt al vlug plaats voor de harde realiteit van het leven in de loopgraven.' },
+  { id:'societysnow', title:'Society of the Snow', year:2023, rating:7.8, runtime:144, genre:'Drama', emoji:'🏔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2e853FDVSIso600RqAMunPxiZjq.jpg", tmdbId:906126, desc:'Overlevenden van een vliegramp vechten om te overleven in de Andes.', synopsis:'In 1972 stortte een vlucht uit Uruguay diep in de Andes neer. Dit dwong de overlevenden om hun hoop op elkaar te vestigen.' },
+  { id:'leaveworld', title:'Leave the World Behind', year:2023, rating:6.5, runtime:138, genre:'Thriller', emoji:'📡', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/29rhl1xopxA7JlGVVsf1UHfYPvN.jpg", tmdbId:726209, desc:'Een vakantie ontspoort wanneer een mysterieuze cyberaanval het land lamlegt.', synopsis:'Het familie-uitje naar een luxueus huurhuis neemt een onheilspellende wending wanneer een cyberaanval al hun apparaten uitschakelt en twee vreemden aan de deur verschijnen.' },
+  { id:'thekiller', title:'The Killer', year:2023, rating:6.7, runtime:118, genre:'Thriller', emoji:'🎯', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/ipkcgvN7h3yZnbYowthloHLKsf4.jpg", tmdbId:800158, desc:'Een koelbloedige huurmoordenaar jaagt op wraak na een mislukte klus.', synopsis:'Na een mislukte klus gaat een huurmoordenaar de strijd aan met zijn opdrachtgevers en zichzelf tijdens een internationale klopjacht, die volgens hem niet persoonlijk is.' },
+  { id:'saltburn', title:'Saltburn', year:2023, rating:7, runtime:131, genre:'Drama', emoji:'🦋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/zGTfMwG112BC66mpaveVxoWPOaB.jpg", tmdbId:930564, desc:'Een student raakt geobsedeerd door een rijke klasgenoot en diens landgoed.', synopsis:'Terwijl hij worstelt om zijn plek te vinden aan de Universiteit van Oxford, wordt student Oliver Quick meegezogen in de wereld van de charmante en aristocratische Felix Catton, die hem uitnodigt naar Saltburn, het uitgestrekte landgoed van zijn excentrieke familie, voor een zomer om nooit te vergeten.' },
+  { id:'roadhouse', title:'Road House', year:2024, rating:6, runtime:121, genre:'Actie', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/fDEdtS4P0gJsxHDIt8dG8TR5dx1.jpg", tmdbId:359410, desc:'Een ex-UFC-vechter wordt uitsmijter bij een louche bar in Florida.', synopsis:'Een voormalig UFC-vechter is op zoek naar nieuw werk. Hij neemt vervolgens een baan aan als uitsmijter van een bar, Florida Keys genaamd. Al snel komt hij erachter dat niet alles is wat het lijkt in dit tropische paradijs.' },
+  { id:'air', title:'Air', year:2023, rating:7.4, runtime:112, genre:'Drama', emoji:'👟', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/76AKQPdH3M8cvsFR9K8JsOzVlY5.jpg", tmdbId:964980, desc:'Nike waagt alles om een jonge Michael Jordan te strikken.', synopsis:'\'Air\' vertelt het waargebeurde verhaal van schoenenverkoper Sonny Vaccaro. Om een iconische sneaker voor Nike te creëren gaat hij een samenwerking aan met een basketbalspeler, Michael Jordan genaamd. De deal zal resulteren in een groot succes en is de aanzet tot vele andere overeenkomsten van topsporters.' },
+  { id:'creed3', title:'Creed III', year:2023, rating:6.7, runtime:116, genre:'Drama', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/cvsXj3I9Q2iyyIo95AecSd1tad7.jpg", tmdbId:677179, desc:'Adonis Creed neemt het op tegen een vriend uit zijn verleden.', synopsis:'Nadat hij de bokswereld heeft gedomineerd, is het Adonis Creed zowel in zijn carrière als in zijn gezinsleven voor de wind gegaan. Wanneer jeugdvriend en voormalig bokstalent Damian weer opduikt na een lange gevangenisstraf, wil die graag bewijzen dat hij een kans verdient in de ring. De confrontatie tussen de voormalige vrienden is meer dan alleen een bokspartij. Om de rekening te vereffenen moet Adonis zijn toekomst op het spel zetten om het op te nemen tegen Damian, een bokser die niets te verliezen heeft.' },
+  { id:'wonka', title:'Wonka', year:2023, rating:7, runtime:116, genre:'Familie', emoji:'🍫', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qhb1qOilapbapxWQn9jtRCMwXJF.jpg", tmdbId:787699, desc:'Hoe een jonge dromer de beroemdste chocolademaker ter wereld werd.', synopsis:'De jonge Willy Wonka heeft allerlei heerlijke ideeën en is vastbesloten de wereld stapje voor stapje lekkerder te maken. Wat bewijst dat de beste dingen in het leven beginnen met een droom en dat alles mogelijk is als je het geluk hebt om Willy Wonka te ontmoeten.' },
+  { id:'aquaman', title:'Aquaman', year:2018, rating:6.8, runtime:143, genre:'Actie', emoji:'🔱', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/ufl63EFcc5XpByEV2Ecdw6WJZAI.jpg", tmdbId:297802, desc:'De halfbloed troonopvolger moet de onderwaterwereld Atlantis verenigen.', synopsis:'\'Aquaman\' volgt Arthur Curry, erfgenaam van het onderwaterkoninkrijk van Atlantis. Arthur zal uit de schaduw moeten treden en zich een ware leider moeten tonen als Heerser van de 7 Zeeën. Dit moet hij doen tussen een wereld aan de oppervlakte die de zee vernietigt en de spanningen binnen zijn eigen onderwaterrijk.' },
+  { id:'wonderwoman', title:'Wonder Woman', year:2017, rating:7.4, runtime:141, genre:'Actie', emoji:'🛡️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/v4ncgZjG2Zu8ZW5al1vIZTsSjqX.jpg", tmdbId:297762, desc:'Een Amazone-prinses verlaat haar eiland om een wereldoorlog te stoppen.', synopsis:'Een Amazoneprinses verlaat haar weelderige tropische eiland om te leven in een wereld met stedelijke stadsgezichten van glas en staal. Opgeleid door Griekse krijgers en uitgerust met uitzonderlijke gaven is ze de afgezant van de goden die zal uitgroeien tot een van de grootste heldinnen ooit.' },
+  { id:'it2017', title:'It', year:2017, rating:7.3, runtime:135, genre:'Horror', emoji:'🎈', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg", tmdbId:346364, desc:'Een groep kinderen verslaat een eeuwenoud kwaad dat als clown verschijnt.', synopsis:'Zomer 1989. \'It\' volgt een groep kinderen, beter bekend als de \'Losers club\', in het kleine stadje Derry, Maine. Op een dag wordt het stadje geterroriseerd door het bloeddorstigste monster It dat het op de kinderen gemunt heeft. Dit monster, dat de vorm van een clown genaamd Pennywise aanneemt, komt lijnrecht tegenover het groepje kinderen te staan dat er alles aan zal moeten doen om het te verdrijven.' },
+  { id:'lotr1', title:'The Lord of the Rings: The Fellowship of the Ring', year:2001, rating:8.9, runtime:178, genre:'Avontuur', emoji:'💍', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg", tmdbId:120, desc:'Een hobbit begint een gevaarlijke tocht om een machtige ring te vernietigen.', synopsis:'Een eeuwenoude ring, die jaren zoek is geweest, wordt gevonden en komt bij toeval terecht bij de kleine Hobbit Frodo. Als de tovenaar Gandalf erachter komt dat deze ring eigenlijk de Ene Ring is waar de slechte Sauron naar op zoek is, gaat Frodo samen met Gandalf, een Dwerg, een Elf, twee Mensen en drie andere Hobbits op een groots avontuur om deze te vernietigen.' },
+  { id:'harrypotter1', title:'Harry Potter and the Philosopher\'s Stone', year:2001, rating:7.6, runtime:152, genre:'Familie', emoji:'⚡', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg", tmdbId:671, desc:'Een wees ontdekt dat hij een tovenaar is en gaat naar Zweinstein.', synopsis:'Op zijn elfde verjaardag verneemt Harry Potter dat zijn overleden ouders twee machtige tovenaars waren en dat hij zelf ook over magische krachten beschikt. Hij krijgt zijn opleiding aan Zweinsteins Hogeschool voor Hekserij en Hocus Pocus.' },
+  { id:'conjuring', title:'The Conjuring', year:2013, rating:7.5, runtime:112, genre:'Horror', emoji:'👻', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wVYREutTvI2tmxr6ujrHT704wGF.jpg", tmdbId:138843, desc:'Paranormaal onderzoekers helpen een gezin dat door een demon wordt geterroriseerd.', synopsis:'The Conjuring vertelt het gruwelijke verhaal van de wereldberoemde paranormale onderzoekers Ed en Lorraine Warren. Hun hulp wordt ingeroepen door een gezin dat door een duistere aanwezigheid in hun afgelegen boerderij geterroriseerd wordt.' },
+  { id:'astarisborn', title:'A Star Is Born', year:2018, rating:7.6, runtime:136, genre:'Muziek', emoji:'🎙️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wrFpXMNBRj2PBiN4Z5kix51XaIZ.jpg", tmdbId:332562, desc:'Een muzikant ontdekt een zangeres terwijl zijn eigen ster verbleekt.', synopsis:'Jackson Maine is een countryzanger die op de rand van de afgrond staat als hij een getalenteerde onbekende zangeres ontdekt, genaamd Ally. Als de twee een hartstochtelijke liefdesrelatie beginnen zet Jackson Ally in de spotlights en werpt haar in de wereld van de sterren.' },
+  { id:'tenet', title:'Tenet', year:2020, rating:7.3, runtime:150, genre:'Sci-Fi', emoji:'⏳', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/aCIFMriQh8rvhxpN1IWGgvH0Tlg.jpg", tmdbId:577922, desc:'Een agent leert tijd manipuleren om een wereldwijde ramp te voorkomen.', synopsis:'Gewapend met slechts één woord - Tenet - en vechtend voor het voortbestaan ​​van de hele wereld, reist de hoofdrolspeler door een schemerige wereld van internationale spionage op een missie die zich in iets meer dan realtime zal ontvouwen.' },
+  { id:'elvis', title:'Elvis', year:2022, rating:7.3, runtime:159, genre:'Muziek', emoji:'🕺', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qBOKWqAFbveZ4ryjJJwbie6tXkQ.jpg", tmdbId:614934, desc:'Het turbulente leven van de King of Rock \'n\' Roll en zijn manager.', synopsis:'Elvis Presley is een musicus die niet alleen omringd wordt door zijn vele fans, maar ook door zijn eigen manager. Deze Tom Parker is een raadselachtige man die veel alledaagse zaken uit het leven van Elvis beheert. Deze film volgt hun gecompliceerde relatie over een periode van 20 jaar, vanaf de opkomst van Elvis\' sterrendom tot aan het verlies van de onschuld aan Amerika.' },
+  { id:'furiosa', title:'Furiosa: A Mad Max Saga', year:2024, rating:7.5, runtime:148, genre:'Actie', emoji:'🔥', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iADOJ8Zymht2JPMoy3R7xceZprc.jpg", tmdbId:786892, desc:'De jonge Furiosa vecht om te overleven in de woestenij van Mad Max.', synopsis:'Na de ondergang van de wereld wordt de jonge Furiosa meegenomen uit de Green Place of Many Mothers en komt ze in handen van een grote motorbende aangevoerd door Warlord Dementus. Op hun tocht door de woestijn bereiken ze de Citadel, waar Immortan Joe de baas is. Terwijl de twee tirannen om de macht strijden, moet Furiosa vele beproevingen doorstaan en een manier vinden om terug te kunnen keren naar huis.' },
+  { id:'irishman', title:'The Irishman', year:2019, rating:7.8, runtime:209, genre:'Misdaad', emoji:'🎩', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mbm8k3GFhXS0ROd9AD1gqYbIFbM.jpg", tmdbId:398978, desc:'Een huurmoordenaar blikt terug op zijn rol in de maffia en de moord op Hoffa.', synopsis:'Frank Sheeran is een veteraan van de Tweede Wereldoorlog die uitgroeit tot een gerenommeerde huurmoordenaar. Hij zou volgens geruchten een rol hebben gespeeld in de verdwijning van vakbondsleider Jimmy Hoffa.' },
+  { id:'rebelridge', title:'Rebel Ridge', year:2024, rating:7.1, runtime:131, genre:'Thriller', emoji:'🚓', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xEt2GSz9z5rSVpIHMiGdtf0czyf.jpg", tmdbId:646097, desc:'Een ex-marinier neemt het op tegen een corrupt politiekorps.', synopsis:'Een ex-marinier gaat de strijd aan met de corruptie in een kleine plaats als de politie onterecht het geld inpikt dat hij nodig heeft voor de borgtocht van zijn neef.' },
+  { id:'hitman', title:'Hit Man', year:2023, rating:6.9, runtime:115, genre:'Comedy', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/oil3EZwKFp3CWxZnfGfGglesvm9.jpg", tmdbId:974635, desc:'Een brave professor speelt nep-huurmoordenaar en valt voor een cliënt.', synopsis:'Professor Gary Johnson doet zich voor als huurmoordenaar namens de politie van New Orleans. Gary is zéér begaafd in het schakelen tussen verschillende persoonlijkheden om voor iedereen de perfecte hit man te zijn. Hij komt in een lastige situatie terecht als hij gevoelens begint te ontwikkelen voor een van zijn potentiële klanten, de beeldschone Madison (gespeeld door Adria Arjona). Als Madison verliefd wordt op een van Gary\'s alter ego\'s - de mysterieuze en sexy Ron - zorgt hun affaire voor een opeenvolging van leugens, bedrog en escalerende belangen.' },
+  { id:'incrediblesfamily', title:'The Incredibles', year:2004, rating:8, runtime:115, genre:'Animatie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/2LqaLgk4Z226KkgPJuiOQ58wvrm.jpg", tmdbId:9806, desc:'Een gezin van superhelden moet hun krachten weer inzetten om de wereld te redden.', synopsis:'Bob Parr en zijn vrouw Helen behoorden vroeger tot de groep van \'s werelds grootste misdaadbestrijders. Levens redden en het kwaad bestrijden was hun dagelijks werk. Maar vijftien jaar later zijn ze gedwongen om als gewone burgers te leven en zich terug te trekken in een buitenwijk. Ze wonen daar als "normaal" gezin met hun drie kinderen, Violet, Dash en Jack Jack.' },
+  { id:'upmovie', title:'Up', year:2009, rating:8.3, runtime:96, genre:'Animatie', emoji:'🎈', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg", tmdbId:14160, desc:'Een norse weduwnaar vliegt met ballonnen naar Zuid-Amerika — met verstekeling.', synopsis:'Carl Fredricksen is een gepensioneerde ballonnenverkoper, maar ook een schavuit en dromer, die klaar is om zijn laatste kans op avontuur hoog in de wolken te grijpen. Carl maakt duizenden ballonnen aan zijn huis vast en stijgt op om af te reizen naar de verloren dromen van zijn jeugd. Wat Carl niet weet, is dat Russell, een 8-jarige padvinder die nooit verder is geweest dan zijn achtertuin, op het verkeerde moment op de verkeerde plek is, namelijk op Carl’s veranda! Terwijl ze samen vastzitten in de woeste jungle, realiseert Carl zich dat de grootste avonturen in het leven soms anders uitpakken dan je zelf gedacht had.' },
 ];
 
 const PLATFORM_META = {
@@ -495,11 +566,13 @@ async function fetchLiveDeck(platforms, key, pagesPerPlatform = 8) {
         if (!f) {
           const g = genreFor(r.genre_ids);
           f = {
-            id, title: r.title, year: parseInt((r.release_date || '').slice(0, 4)) || '',
+            id, tmdbId: r.id, title: r.title, year: parseInt((r.release_date || '').slice(0, 4)) || '',
             rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
             genre: g.name, emoji: g.emoji, platforms: [],
             poster: 'https://image.tmdb.org/t/p/w500' + r.poster_path,
-            desc: (r.overview || '').slice(0, 180)
+            backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w780' + r.backdrop_path : null,
+            desc: (r.overview || '').slice(0, 150),
+            synopsis: (r.overview || '').slice(0, 400)
           };
           map.set(id, f);
         }
@@ -786,6 +859,8 @@ async function hostStart() {
 
 function startGame() {
   started = true;
+  lastSwipe = null;
+  $('undoBtn').disabled = true;
   show('game');
   $('threshView').textContent = effThreshold();
   renderDeck();
@@ -842,12 +917,12 @@ function buildCard(film, isTop) {
 
 /* swipe / drag */
 function attachDrag(card) {
-  let startX=0, startY=0, dx=0, dy=0, dragging=false;
+  let startX=0, startY=0, dx=0, dy=0, dragging=false, t0=0;
   const like = card.querySelector('.stamp.like');
   const nope = card.querySelector('.stamp.nope');
   const down = e => {
     dragging = true; const p = point(e);
-    startX = p.x; startY = p.y; card.style.transition = 'none';
+    startX = p.x; startY = p.y; t0 = Date.now(); card.style.transition = 'none';
   };
   const move = e => {
     if (!dragging) return;
@@ -855,15 +930,19 @@ function attachDrag(card) {
     const rot = dx / 18;
     card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
     const r = Math.min(Math.abs(dx)/120, 1);
-    like.style.opacity = dx > 0 ? r : 0;
-    nope.style.opacity = dx < 0 ? r : 0;
+    like.style.opacity = dx > 0 && Math.abs(dx) > Math.abs(dy) ? r : 0;
+    nope.style.opacity = dx < 0 && Math.abs(dx) > Math.abs(dy) ? r : 0;
   };
   const up = () => {
     if (!dragging) return; dragging = false;
     card.style.transition = 'transform .3s ease';
-    if (dx > 110) swipe(card, true);
+    const dist = Math.hypot(dx, dy), dt = Date.now() - t0;
+    if (dist < 10 && dt < 350) { reset(); openDetails(deck[deckIndex]); }      // tik = details
+    else if (dy < -100 && Math.abs(dy) > Math.abs(dx)) { reset(); openDetails(deck[deckIndex]); } // omhoog vegen = details
+    else if (dx > 110) swipe(card, true);
     else if (dx < -110) swipe(card, false);
-    else { card.style.transform = ''; like.style.opacity=0; nope.style.opacity=0; }
+    else reset();
+    function reset(){ card.style.transform = ''; like.style.opacity=0; nope.style.opacity=0; }
   };
   card.addEventListener('pointerdown', down);
   window.addEventListener('pointermove', move);
@@ -872,15 +951,28 @@ function attachDrag(card) {
 }
 const point = e => ({ x: e.clientX, y: e.clientY });
 
+let lastSwipe = null;   // { film, liked } voor undo
 function swipe(card, liked) {
   const dir = liked ? 1 : -1;
   card.style.transform = `translate(${dir*600}px, ${ -40}px) rotate(${dir*30}deg)`;
   card.style.opacity = '0';
   if (card._cleanup) card._cleanup();
   const film = deck[deckIndex];
+  lastSwipe = { film, liked };
+  $('undoBtn').disabled = false;
   if (liked && film) { myLikes.add(film.id); bumpMyLikes(); }
   deckIndex++;
   setTimeout(renderDeck, 220);
+}
+
+function undoSwipe() {
+  if (!lastSwipe || deckIndex === 0) return;
+  deckIndex--;
+  if (lastSwipe.liked && lastSwipe.film) { myLikes.delete(lastSwipe.film.id); bumpMyLikes(); }
+  lastSwipe = null;
+  $('undoBtn').disabled = true;
+  renderDeck();
+  toast('Swipe teruggedraaid ↩');
 }
 
 function programmaticSwipe(liked) {
@@ -889,6 +981,76 @@ function programmaticSwipe(liked) {
   const top = cards[cards.length - 1]; // huidige kaart wordt als laatste toegevoegd = bovenop
   if (top) swipe(top, liked);
 }
+
+/* ----------------------------- Detail sheet ----------------------------- */
+const detailCache = new Map();   // tmdbId -> TMDB details
+let sheetFilm = null;
+
+function openDetails(film) {
+  if (!film) return;
+  sheetFilm = film;
+  const heroImg = film.backdrop || film.poster;
+  $('sheetHero').style.background = heroImg
+    ? `center/cover no-repeat url("${heroImg}")` : genreGrad(film.genre);
+  $('sheetEmoji').textContent = film.poster ? '' : film.emoji;
+  $('sheetTitle').textContent = film.title + (film.year ? ` (${film.year})` : '');
+  $('sheetMeta').innerHTML = [
+    film.rating ? `<span class="star">★ ${film.rating.toFixed(1)}</span>` : '',
+    film.runtime ? `<span>${film.runtime} min</span>` : '',
+    `<span>${film.genre}</span>`
+  ].filter(Boolean).join('');
+  $('sheetChips').innerHTML = film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
+  $('sheetTagline').style.display = 'none';
+  $('sheetSyn').textContent = film.synopsis || film.desc || 'Geen beschrijving beschikbaar.';
+  $('sheetExtra').innerHTML = '';
+  $('sheetTrailer').dataset.yt = '';
+  $('sheetDecide').style.display = (film === deck[deckIndex]) ? '' : 'none';
+  $('sheetWrap').classList.add('active');
+
+  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  if (key && film.tmdbId) loadRichDetails(film.tmdbId, key);
+}
+function closeDetails() { $('sheetWrap').classList.remove('active'); sheetFilm = null; }
+
+async function loadRichDetails(tid, key) {
+  if (detailCache.has(tid)) { if (sheetFilm && sheetFilm.tmdbId === tid) renderRich(detailCache.get(tid)); return; }
+  $('sheetExtra').innerHTML = '<div class="loading"><span class="spin"></span>Cast &amp; trailer laden…</div>';
+  try {
+    const d = await tmdbGet('/movie/' + tid, { language: 'nl-NL', append_to_response: 'credits,videos' }, key);
+    detailCache.set(tid, d);
+    if (sheetFilm && sheetFilm.tmdbId === tid) renderRich(d);
+  } catch (e) { $('sheetExtra').innerHTML = ''; }
+}
+
+function renderRich(d) {
+  if (d.backdrop_path) $('sheetHero').style.background = `center/cover no-repeat url("https://image.tmdb.org/t/p/w780${d.backdrop_path}")`;
+  if (d.tagline) { $('sheetTagline').textContent = '“' + d.tagline + '”'; $('sheetTagline').style.display = ''; }
+  if (d.overview) $('sheetSyn').textContent = d.overview;
+  const director = (d.credits && d.credits.crew || []).find(c => c.job === 'Director');
+  const cast = (d.credits && d.credits.cast || []).slice(0, 8);
+  let html = '';
+  if (director) html += `<div class="section-h">Regie</div><div class="crew">${director.name}</div>`;
+  if (cast.length) {
+    html += '<div class="section-h">Cast</div><div class="cast">' + cast.map(c => `
+      <div class="c">
+        <div class="ph" style="${c.profile_path ? `background-image:url('https://image.tmdb.org/t/p/w185${c.profile_path}')` : ''}">${c.profile_path ? '' : '🎭'}</div>
+        <div class="nm">${c.name}</div>
+        <div class="ch">${c.character || ''}</div>
+      </div>`).join('') + '</div>';
+  }
+  $('sheetExtra').innerHTML = html;
+  const vids = (d.videos && d.videos.results) || [];
+  const tr = vids.find(v => v.site === 'YouTube' && v.type === 'Trailer') || vids.find(v => v.site === 'YouTube');
+  $('sheetTrailer').dataset.yt = tr ? tr.key : '';
+}
+
+// sleep de hero naar beneden om te sluiten
+(function () {
+  const hero = $('sheetHero'); let sy = 0, drag = false;
+  hero.addEventListener('pointerdown', e => { sy = e.clientY; drag = true; $('sheet').style.transition = 'none'; });
+  window.addEventListener('pointermove', e => { if (!drag) return; const d = Math.max(0, e.clientY - sy); $('sheet').style.transform = `translateY(${d}px)`; });
+  window.addEventListener('pointerup', e => { if (!drag) return; drag = false; $('sheet').style.transition = ''; const d = Math.max(0, e.clientY - sy); $('sheet').style.transform = ''; if (d > 110) closeDetails(); });
+})();
 
 /* ----------------------------- Matching ----------------------------- */
 function likeCount(id) {
@@ -918,14 +1080,25 @@ function celebrate(film) {
   matchQueue.push(film);
   if (!overlayOpen) showNextMatch();
 }
+function matchedNames(filmId) {
+  const names = [];
+  for (const [pid, info] of likesByPeer) if (info.ids.has(filmId)) names.push(pid === selfId ? 'Jij' : (roster.get(pid) || 'Speler'));
+  return names;
+}
+function joinNames(arr) {
+  if (arr.length <= 1) return arr[0] || '';
+  return arr.slice(0, -1).join(', ') + ' & ' + arr[arr.length - 1];
+}
 function showNextMatch() {
   if (matchQueue.length === 0) { overlayOpen = false; return; }
   overlayOpen = true;
   const film = matchQueue.shift();
-  $('matchTitle').textContent = `${film.title} (${film.year})`;
+  $('matchTitle').textContent = `${film.title}${film.year ? ` (${film.year})` : ''}`;
   $('matchPoster').style.background = film.poster
     ? `center/cover no-repeat url("${film.poster}"), ${genreGrad(film.genre)}`
     : genreGrad(film.genre);
+  const who = joinNames(matchedNames(film.id));
+  $('matchWho').textContent = who ? `${who} ${matchedNames(film.id).length > 1 || who !== 'Jij' ? 'willen' : 'wil'} dit kijken` : '';
   $('matchPlatforms').innerHTML = film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
   $('matchOverlay').classList.add('active');
   if (navigator.vibrate) navigator.vibrate([40,30,40]);
@@ -938,10 +1111,11 @@ $('keepSwipingBtn').onclick = () => {
 /* matches lijst */
 function renderMatchList() {
   const ul = $('matchListFull'); ul.innerHTML = '';
-  const matched = FILMS.filter(f => shownMatches.has(f.id));
+  const matched = deck.filter(f => shownMatches.has(f.id));   // dek bevat zowel curated als live films
   $('noMatches').style.display = matched.length ? 'none' : 'flex';
   for (const f of matched) {
     const li = document.createElement('li');
+    li.style.cursor = 'pointer';
     li.innerHTML = `
       <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${f.poster}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
       <div style="flex:1">
@@ -949,6 +1123,7 @@ function renderMatchList() {
         <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
         <div class="chips" style="margin-top:6px">${f.platforms.map(p=>`<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('')}</div>
       </div>`;
+    li.onclick = () => openDetails(f);
     ul.appendChild(li);
   }
 }
@@ -1004,9 +1179,25 @@ $('leaveBtn').onclick = () => { if (room) room.leave(); location.reload(); };
 
 $('nopeBtn').onclick = () => programmaticSwipe(false);
 $('likeBtn').onclick = () => programmaticSwipe(true);
-$('infoBtn').onclick = () => toast('Sleep de kaart of gebruik de knoppen ✕ / ♥');
+$('infoBtn').onclick = () => openDetails(deck[deckIndex]);
+$('undoBtn').onclick = undoSwipe;
 $('matchesPill').onclick = () => { renderMatchList(); show('matchesScreen'); };
 $('backToGameBtn').onclick = () => show(deckIndex >= deck.length ? 'matchesScreen' : 'game');
+
+// detailscherm-knoppen
+$('sheetTrailer').onclick = () => {
+  const yt = $('sheetTrailer').dataset.yt;
+  const url = yt
+    ? 'https://www.youtube.com/watch?v=' + yt
+    : 'https://www.youtube.com/results?search_query=' + encodeURIComponent((sheetFilm?.title || '') + ' ' + (sheetFilm?.year || '') + ' trailer');
+  window.open(url, '_blank', 'noopener');
+};
+$('sheetWatch').onclick = () => {
+  if (sheetFilm) window.open('https://www.justwatch.com/nl/zoeken?q=' + encodeURIComponent(sheetFilm.title), '_blank', 'noopener');
+};
+$('sheetNope').onclick = () => { closeDetails(); programmaticSwipe(false); };
+$('sheetLike').onclick = () => { closeDetails(); programmaticSwipe(true); };
+$('sheetWrap').addEventListener('click', e => { if (e.target === $('sheetWrap')) closeDetails(); });
 
 // auto-uppercase code input
 $('joinCode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });

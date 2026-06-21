@@ -1061,7 +1061,7 @@ function likeCount(id) {
 }
 function recomputeMatches() {
   const need = effThreshold();
-  for (const film of FILMS) {
+  for (const film of deck) {   // dek = de films die in het spel zitten (curated óf live)
     if (shownMatches.has(film.id)) continue;
     if (likeCount(film.id) >= need && need >= 2) {
       shownMatches.add(film.id);

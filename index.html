@@ -337,6 +337,7 @@
     <span class="pill">🔥 Match bij <b id="threshView">–</b></span>
     <span class="pill" id="matchesPill" style="cursor:pointer;">💞 <b id="matchCount">0</b></span>
   </div>
+  <div id="dbg" style="font-size:11px; color:var(--muted); text-align:center; padding:6px 0 0;"></div>
 
   <div class="deck" id="deck"></div>
 
@@ -1073,6 +1074,13 @@ function recomputeMatches() {
 function updateMatchCount() {
   $('matchCount').textContent = shownMatches.size;
   $('threshView').textContent = effThreshold();
+  updateDbg();
+}
+function updateDbg() {
+  const el = $('dbg'); if (!el) return;
+  let top = 0, topId = '';
+  for (const f of deck) { const c = likeCount(f.id); if (c > top) { top = c; topId = f.id; } }
+  el.textContent = `👥 ${roster.size} spelers · match bij ${effThreshold()} · jij ${myLikes.size} likes · likes-data van ${likesByPeer.size} · hoogste overlap ${top}`;
 }
 
 let matchQueue = [];

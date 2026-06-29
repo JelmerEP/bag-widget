@@ -21,6 +21,7 @@
     --prime: #00a8e1;
     --hbomax: #6f4cff;
     --disney: #1a63ff;
+    --videoland: #ff5500;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -111,6 +112,7 @@
   .pf.prime.on { color: var(--prime); }
   .pf.hbomax.on { color: var(--hbomax); }
   .pf.disney.on { color: var(--disney); }
+  .pf.videoland.on { color: var(--videoland); }
   .pf.disabled { opacity: .55; pointer-events: none; }
 
   .seg { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
@@ -153,6 +155,7 @@
   .chip.prime { background: var(--prime); }
   .chip.hbomax { background: var(--hbomax); }
   .chip.disney { background: var(--disney); }
+  .chip.videoland { background: var(--videoland); }
   .chip.genre { background: rgba(255,255,255,.16); }
 
   .stamp {
@@ -265,7 +268,7 @@
     <span class="mark">🎬</span>
     <h1>Film<span class="grad-text">Match</span></h1>
   </div>
-  <p class="sub">Swipe samen met je vrienden door films op Netflix, Prime Video, HBO Max en Disney+ (NL). Liket iedereen dezelfde film? Match — tijd om te kijken! 🍿</p>
+  <p class="sub">Swipe samen met je vrienden door films op Netflix, Prime Video, HBO Max, Disney+ en Videoland (NL). Liket iedereen dezelfde film? Match — tijd om te kijken! 🍿</p>
 
   <div class="field">
     <label class="lbl">Jouw naam</label>
@@ -531,14 +534,15 @@ const FILMS = [
 ];
 
 const PLATFORM_META = {
-  netflix: { name:'Netflix', short:'N' },
-  prime:   { name:'Prime Video', short:'P' },
-  hbomax:  { name:'HBO Max', short:'H' },
-  disney:  { name:'Disney+', short:'D' }
+  netflix:   { name:'Netflix', short:'N' },
+  prime:     { name:'Prime Video', short:'P' },
+  hbomax:    { name:'HBO Max', short:'H' },
+  disney:    { name:'Disney+', short:'D' },
+  videoland: { name:'Videoland', short:'V' }
 };
 
 /* TMDB watch-provider-id's voor regio NL (pipe = OR) */
-const PROVIDER_IDS = { netflix:'8', prime:'9|119|2100', hbomax:'1899|384', disney:'337' };
+const PROVIDER_IDS = { netflix:'8', prime:'9|119|2100', hbomax:'1899|384', disney:'337', videoland:'72' };
 const TMDB_GENRE = {
   28:['Actie','💥'], 12:['Avontuur','🧭'], 16:['Animatie','🎨'], 35:['Comedy','😂'],
   80:['Misdaad','🔫'], 99:['Documentaire','🎥'], 18:['Drama','🎭'], 10751:['Familie','👨‍👩‍👧'],
@@ -882,6 +886,7 @@ async function hostStart() {
     if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); renderLobby(); return; }
   } else {
     films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+    if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); renderLobby(); return; }
   }
   films = seededShuffle(films, seed).slice(0, 400);   // dek-limiet i.v.m. verzendgrootte
   startPayload = { platforms: [...selectedPlatforms], threshold, films };
@@ -1240,6 +1245,7 @@ async function soloStart() {
     if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); return; }
   } else {
     films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+    if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); return; }
   }
   deck = seededShuffle(films, seed).slice(0, 400);
   deckIndex = 0;

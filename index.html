@@ -277,6 +277,10 @@
   </div>
 
   <div class="field">
+    <button id="soloBtn" class="btn-ghost btn-block">🎬 Speel alleen</button>
+  </div>
+
+  <div class="field">
     <label class="lbl">Of join met een code</label>
     <div class="row">
       <input id="joinCode" type="text" maxlength="4" class="code-input" placeholder="CODE" autocomplete="off" />
@@ -291,25 +295,27 @@
 <!-- LOBBY -->
 <section id="lobby" class="screen">
   <div class="logo" style="margin-bottom:6px;">
-    <span class="mark">🎬</span><h2>Lobby</h2>
+    <span class="mark">🎬</span><h2 id="lobbyTitle">Lobby</h2>
   </div>
-  <div class="codebox">
+  <div class="codebox" id="codeBox">
     <div class="lbl" style="margin:0;">Roomcode — deel met je vrienden</div>
     <div class="code" id="roomCodeView">····</div>
     <button id="copyBtn" class="btn-ghost" style="margin-top:6px; padding:10px 16px;">📋 Kopieer code</button>
   </div>
 
-  <h2 style="margin-top:20px;">Spelers <span id="playerCount" style="color:var(--muted); font-weight:400;"></span></h2>
+  <h2 style="margin-top:20px;" id="playersHeader">Spelers <span id="playerCount" style="color:var(--muted); font-weight:400;"></span></h2>
   <ul class="players" id="playerList"></ul>
 
   <div id="hostControls">
     <h2 style="margin-top:14px;">Platforms</h2>
-    <p class="sub">Kies waar jullie op willen swipen.</p>
+    <p class="sub" id="platformSub">Kies waar jullie op willen swipen.</p>
     <div class="platforms" id="platformPicker"></div>
 
-    <h2 style="margin-top:18px;">Match bij</h2>
-    <p class="sub">Hoeveel spelers moeten dezelfde film liken voor een match?</p>
-    <div class="seg" id="thresholdPicker"></div>
+    <div id="thresholdBlock">
+      <h2 style="margin-top:18px;">Match bij</h2>
+      <p class="sub">Hoeveel spelers moeten dezelfde film liken voor een match?</p>
+      <div class="seg" id="thresholdPicker"></div>
+    </div>
 
     <h2 style="margin-top:18px;">Volledige catalogus <span style="color:var(--muted);font-weight:400;font-size:14px;">(optioneel)</span></h2>
     <p class="sub">Plak een gratis TMDB API-sleutel om <b>álle</b> films op te halen die nú op de gekozen platforms in NL staan. Leeg laten = ingebouwde lijst van 97 films. Wordt alleen lokaal opgeslagen.</p>
@@ -323,7 +329,7 @@
   </div>
 
   <div class="spacer"></div>
-  <p class="status"><span class="dotlive" id="connDot"></span><span id="connText">Verbinden…</span></p>
+  <p class="status" id="statusLine"><span class="dotlive" id="connDot"></span><span id="connText">Verbinden…</span></p>
   <div class="row">
     <button id="leaveBtn" class="btn-ghost" style="flex:none; width:110px;">Verlaten</button>
     <button id="startBtn" class="btn-primary" style="flex:1;">Start de game</button>
@@ -333,9 +339,9 @@
 <!-- GAME -->
 <section id="game" class="screen">
   <div class="topbar">
-    <span class="pill">🎴 <b id="deckLeft">0</b> over</span>
-    <span class="pill">🔥 Match bij <b id="threshView">–</b></span>
+    <span class="pill">🎴 <b id="deckLeft">0</b></span>
     <span class="pill" id="matchesPill" style="cursor:pointer;">💞 <b id="matchCount">0</b></span>
+    <span class="pill" id="likesPill" style="cursor:pointer;">❤️ <b id="likeCountPill">0</b></span>
   </div>
   <div id="dbg" style="font-size:11px; color:var(--muted); text-align:center; padding:6px 0 0;"></div>
 
@@ -360,6 +366,19 @@
   </div>
   <div class="spacer"></div>
   <button id="backToGameBtn" class="btn-ghost btn-block">Terug naar swipen</button>
+</section>
+
+<!-- JOUW LIKES LIST -->
+<section id="likesScreen" class="screen">
+  <div class="logo" style="margin-bottom:4px;"><span class="mark">❤️</span><h2 id="likesTitle">Jouw likes</h2></div>
+  <p class="sub" id="likesSub">Alle films die jij leuk vond — jouw persoonlijke kijklijst.</p>
+  <ul class="matchlist" id="likeListFull"></ul>
+  <div id="noLikes" class="empty" style="display:none;">
+    <div class="big">🎬</div>
+    <div>Nog geen likes… swipe naar rechts op films die je wilt zien!</div>
+  </div>
+  <div class="spacer"></div>
+  <button id="backFromLikesBtn" class="btn-ghost btn-block">Terug naar swipen</button>
 </section>
 
 <!-- MATCH OVERLAY -->
@@ -594,7 +613,7 @@ function setStartLoading(on, txt) {
   starting = on;
   const b = $('startBtn');
   b.disabled = on;
-  b.textContent = on ? (txt || 'Bezig…') : 'Start de game';
+  b.textContent = on ? (txt || 'Bezig…') : (solo ? '🎬 Begin' : 'Start de game');
 }
 
 const GENRE_GRADIENT = {
@@ -636,6 +655,7 @@ let gotStart = false;
 let sendRoster, sendLikes, sendStart;
 let announceTimer = null, hiddenSince = 0;
 let starting = false;
+let solo = false;
 
 /* ----------------------------- Helpers ----------------------------- */
 function show(screenId) {
@@ -756,6 +776,7 @@ function bumpMyLikes() {
   myLikesVersion++;
   likesByPeer.set(selfId, { v: myLikesVersion, ids: new Set(myLikes) });
   if (sendLikes) sendLikes({ id: selfId, v: myLikesVersion, ids: [...myLikes] });
+  updateLikePill();
   recomputeMatches();
 }
 
@@ -795,9 +816,14 @@ function renderLobby() {
   }
   renderThresholds();
   renderPlatformViews();
-  // start alleen voor host, minimaal 2 spelers
-  $('startBtn').disabled = starting || !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
-  $('startBtn').style.display = isHost ? '' : 'none';
+  if (solo) {
+    $('startBtn').disabled = starting || selectedPlatforms.size === 0;
+    $('startBtn').style.display = '';
+  } else {
+    // start alleen voor host, minimaal 2 spelers
+    $('startBtn').disabled = starting || !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
+    $('startBtn').style.display = isHost ? '' : 'none';
+  }
 }
 
 function renderPlatformPicker() {
@@ -867,17 +893,23 @@ function startGame() {
   started = true;
   lastSwipe = null;
   $('undoBtn').disabled = true;
+  // solo: geen matches/diagnose tonen
+  $('matchesPill').style.display = solo ? 'none' : '';
+  $('dbg').style.display = solo ? 'none' : '';
   show('game');
-  $('threshView').textContent = effThreshold();
   renderDeck();
   updateMatchCount();
+  updateLikePill();
 }
 
 function renderDeck() {
   const el = $('deck'); el.innerHTML = '';
   $('deckLeft').textContent = Math.max(0, deck.length - deckIndex);
   if (deckIndex >= deck.length) {
-    el.innerHTML = `<div class="empty"><div class="big">🎉</div><div>Je hebt alles gezien!<br>Wachten op je vrienden…</div></div>`;
+    el.innerHTML = solo
+      ? `<div class="empty"><div class="big">🎉</div><div>Je hebt alles gezien!</div><button class="btn-primary" id="seeMyListBtn" style="margin-top:14px;">❤️ Bekijk jouw lijst (${myLikes.size})</button></div>`
+      : `<div class="empty"><div class="big">🎉</div><div>Je hebt alles gezien!<br>Wachten op je vrienden…</div></div>`;
+    const b = $('seeMyListBtn'); if (b) b.onclick = () => { renderMyLikes(); show('likesScreen'); };
     $('actions').style.visibility = 'hidden';
     return;
   }
@@ -1073,8 +1105,10 @@ function recomputeMatches() {
 }
 function updateMatchCount() {
   $('matchCount').textContent = shownMatches.size;
-  $('threshView').textContent = effThreshold();
-  updateDbg();
+  if (!solo) updateDbg();
+}
+function updateLikePill() {
+  $('likeCountPill').textContent = myLikes.size;
 }
 function updateDbg() {
   const el = $('dbg'); if (!el) return;
@@ -1119,40 +1153,99 @@ $('keepSwipingBtn').onclick = () => {
   setTimeout(showNextMatch, 250);
 };
 
+/* lijst-item bouwer (gedeeld door matches + jouw likes) */
+function filmListItem(f) {
+  const li = document.createElement('li');
+  li.style.cursor = 'pointer';
+  li.innerHTML = `
+    <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${f.poster}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
+    <div style="flex:1">
+      <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year || ''}</span></div>
+      <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
+      <div class="chips" style="margin-top:6px">${f.platforms.map(p=>`<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('')}</div>
+    </div>`;
+  li.onclick = () => openDetails(f);
+  return li;
+}
+
 /* matches lijst */
 function renderMatchList() {
   const ul = $('matchListFull'); ul.innerHTML = '';
   const matched = deck.filter(f => shownMatches.has(f.id));   // dek bevat zowel curated als live films
   $('noMatches').style.display = matched.length ? 'none' : 'flex';
-  for (const f of matched) {
-    const li = document.createElement('li');
-    li.style.cursor = 'pointer';
-    li.innerHTML = `
-      <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${f.poster}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
-      <div style="flex:1">
-        <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year || ''}</span></div>
-        <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
-        <div class="chips" style="margin-top:6px">${f.platforms.map(p=>`<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('')}</div>
-      </div>`;
-    li.onclick = () => openDetails(f);
-    ul.appendChild(li);
-  }
+  for (const f of matched) ul.appendChild(filmListItem(f));
+}
+
+/* jouw eigen likes */
+function renderMyLikes() {
+  const ul = $('likeListFull'); ul.innerHTML = '';
+  const liked = deck.filter(f => myLikes.has(f.id));
+  $('noLikes').style.display = liked.length ? 'none' : 'flex';
+  $('likesTitle').textContent = solo ? 'Jouw filmlijst' : 'Jouw likes';
+  $('likesSub').textContent = solo
+    ? `${liked.length} ${liked.length === 1 ? 'film' : 'films'} die jij wilt zien.`
+    : 'Alle films die jij leuk vond — jouw persoonlijke kijklijst voor de volgende keer.';
+  for (const f of liked) ul.appendChild(filmListItem(f));
 }
 
 /* ----------------------------- Events ----------------------------- */
+function setLobbyMode(isSolo) {
+  solo = isSolo;
+  const hide = isSolo ? 'none' : '';
+  $('codeBox').style.display = hide;
+  $('playersHeader').style.display = hide;
+  $('playerList').style.display = hide;
+  $('thresholdBlock').style.display = hide;
+  $('statusLine').style.display = hide;
+  $('leaveBtn').style.display = hide;
+  $('lobbyTitle').textContent = isSolo ? 'Solo' : 'Lobby';
+  $('platformSub').textContent = isSolo ? 'Kies op welke diensten je wilt zoeken.' : 'Kies waar jullie op willen swipen.';
+  $('startBtn').textContent = isSolo ? '🎬 Begin' : 'Start de game';
+  $('hostControls').style.display = '';
+  $('guestNote').style.display = 'none';
+}
+
 $('createBtn').onclick = () => {
   myName = $('nameInput').value.trim();
   if (!myName) { toast('Vul je naam in 🙂'); return; }
   isHost = true; threshold = 0;
+  setLobbyMode(false);
   const code = code4();
   connect(code);
   show('lobby');
-  $('hostControls').style.display = '';
-  $('guestNote').style.display = 'none';
   renderPlatformPicker();
   setupTmdbKey();
   renderLobby(); updateConn();
 };
+
+$('soloBtn').onclick = () => {
+  myName = ($('nameInput').value.trim()) || 'Jij';
+  isHost = true; threshold = 0;
+  setLobbyMode(true);
+  show('lobby');
+  renderPlatformPicker();
+  setupTmdbKey();
+  renderLobby();
+};
+
+async function soloStart() {
+  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  const seed = Date.now() >>> 0;   // elke solo-sessie een nieuwe volgorde
+  let films;
+  if (key) {
+    setStartLoading(true, '🎬 Films ophalen…');
+    try { films = await fetchLiveDeck([...selectedPlatforms], key); }
+    catch (e) { toast('TMDB-fout: ' + e.message); setStartLoading(false); return; }
+    setStartLoading(false);
+    if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); return; }
+  } else {
+    films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+  }
+  deck = seededShuffle(films, seed).slice(0, 400);
+  deckIndex = 0;
+  gotStart = true;
+  startGame();
+}
 
 function setupTmdbKey() {
   const inp = $('tmdbKey');
@@ -1173,7 +1266,8 @@ $('joinBtn').onclick = () => {
   const code = $('joinCode').value.trim().toUpperCase();
   if (!myName) { toast('Vul je naam in 🙂'); return; }
   if (code.length !== 4) { toast('Code is 4 tekens'); return; }
-  isHost = false;
+  isHost = false; solo = false;
+  setLobbyMode(false);
   connect(code);
   show('lobby');
   $('hostControls').style.display = 'none';
@@ -1181,7 +1275,7 @@ $('joinBtn').onclick = () => {
   renderLobby(); updateConn();
 };
 
-$('startBtn').onclick = hostStart;
+$('startBtn').onclick = () => solo ? soloStart() : hostStart();
 $('copyBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(roomCode); toast('Code gekopieerd 📋'); }
   catch { toast('Code: ' + roomCode); }
@@ -1193,7 +1287,9 @@ $('likeBtn').onclick = () => programmaticSwipe(true);
 $('infoBtn').onclick = () => openDetails(deck[deckIndex]);
 $('undoBtn').onclick = undoSwipe;
 $('matchesPill').onclick = () => { renderMatchList(); show('matchesScreen'); };
-$('backToGameBtn').onclick = () => show(deckIndex >= deck.length ? 'matchesScreen' : 'game');
+$('likesPill').onclick = () => { renderMyLikes(); show('likesScreen'); };
+$('backToGameBtn').onclick = () => show('game');
+$('backFromLikesBtn').onclick = () => show('game');
 
 // detailscherm-knoppen
 $('sheetClose').onclick = closeDetails;

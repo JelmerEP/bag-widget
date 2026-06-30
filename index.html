@@ -258,12 +258,54 @@
   .sheet .loading { color: var(--muted); font-size: 13px; margin-top: 12px; display: flex; align-items: center; gap: 8px; }
   .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp 1s linear infinite; }
   @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* Account / auth / portal */
+  .accountbar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 9px 14px;
+    font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+  .accountbar b { color: var(--text); }
+  .accountbar a { color: var(--accent2); cursor: pointer; }
+  input[type=password] { width: 100%; padding: 14px 16px; font-size: 16px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; color: var(--text); outline: none; }
+  input[type=password]:focus { border-color: var(--accent2); }
+  .portal-section { margin-top: 18px; }
+  .portal-section h3 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; }
+  .wl-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .wl-actions button { padding: 7px 10px; font-size: 12px; border-radius: 9px; }
+  .wl-watched { opacity: .55; }
+  .wl-watched .mt { text-decoration: line-through; }
 </style>
 </head>
 <body>
 
+<!-- AUTH -->
+<section id="auth" class="screen active">
+  <div class="logo">
+    <span class="mark">🎬</span>
+    <h1>Film<span class="grad-text">Match</span></h1>
+  </div>
+  <p class="sub">Maak een account of log in — dan blijven je kijklijst en matches bewaard, ook op een ander apparaat. <b>Geen e-mail nodig</b>: alleen een gebruikersnaam en wachtwoord.</p>
+
+  <div class="field">
+    <label class="lbl">Gebruikersnaam</label>
+    <input id="authUser" type="text" maxlength="20" placeholder="bijv. jelmer" autocomplete="username" />
+  </div>
+  <div class="field">
+    <label class="lbl">Wachtwoord</label>
+    <input id="authPass" type="password" placeholder="minimaal 6 tekens" autocomplete="current-password" />
+  </div>
+  <p id="authError" class="sub" style="color:var(--nope); min-height:18px; margin-top:8px;"></p>
+
+  <div class="field"><button id="loginBtn" class="btn-primary btn-block">Inloggen</button></div>
+  <div class="field"><button id="registerBtn" class="btn-ghost btn-block">Account maken</button></div>
+
+  <div class="spacer"></div>
+  <button id="guestBtn" class="btn-ghost btn-block" style="opacity:.75;">Verder spelen als gast →</button>
+</section>
+
 <!-- HOME -->
-<section id="home" class="screen active">
+<section id="home" class="screen">
+  <div class="accountbar" id="accountBar"></div>
   <div class="logo">
     <span class="mark">🎬</span>
     <h1>Film<span class="grad-text">Match</span></h1>
@@ -292,7 +334,31 @@
   </div>
 
   <div class="spacer"></div>
-  <p class="hint">Geen account of installatie nodig. Werkt via een directe peer-to-peer verbinding tussen jullie telefoons. Beschikbaarheid van films kan in werkelijkheid wijzigen.</p>
+  <p class="hint">Werkt via een directe peer-to-peer verbinding tussen jullie telefoons. Beschikbaarheid van films kan in werkelijkheid wijzigen.</p>
+</section>
+
+<!-- PORTAL (mijn account) -->
+<section id="portal" class="screen">
+  <div class="logo" style="margin-bottom:4px;"><span class="mark">👤</span><h2 id="portalUser">Mijn account</h2></div>
+  <p class="sub">Je persoonlijke kijklijst en match-historie — overal beschikbaar zolang je ingelogd bent.</p>
+
+  <div class="portal-section">
+    <h3>❤️ Mijn kijklijst <span id="wlCount" style="color:var(--muted)"></span></h3>
+    <ul class="matchlist" id="portalWatchlist"></ul>
+    <div id="wlEmpty" class="sub" style="display:none;">Nog niks bewaard. Like films tijdens het spelen, dan komen ze hier.</div>
+  </div>
+
+  <div class="portal-section">
+    <h3>💞 Match-historie</h3>
+    <ul class="matchlist" id="portalMatches"></ul>
+    <div id="mhEmpty" class="sub" style="display:none;">Nog geen matches met vrienden.</div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="row" style="margin-top:18px;">
+    <button id="portalBackBtn" class="btn-ghost" style="flex:1;">← Terug</button>
+    <button id="portalLogoutBtn" class="btn-ghost" style="flex:none; width:130px;">Uitloggen</button>
+  </div>
 </section>
 
 <!-- LOBBY -->
@@ -429,6 +495,18 @@
 
 <script type="module">
 import { joinRoom, selfId } from 'https://esm.sh/trystero@0.21.0/nostr';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ----------------------------- Supabase ----------------------------- *
+ * Login = gebruikersnaam + wachtwoord (geen e-mail nodig). De gebruikersnaam
+ * wordt intern aan een nep-e-mail gekoppeld zodat Supabase's veilige
+ * wachtwoord-login + onthouden-sessie werken. */
+const SUPABASE_URL = 'https://ghurrxovcwfqqxyahkku.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXJyeG92Y3dmcXF4eWFoa2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MjMxMDYsImV4cCI6MjA5ODI5OTEwNn0.a-pDO8De1jc5kXJf5Tx2T5pYkZe4ejVNVX-lRMABA9A';
+const FAKE_DOMAIN = '@moviematch.app';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true } });
+const userEmail = u => u.toLowerCase().replace(/[^a-z0-9._-]/g, '') + FAKE_DOMAIN;
+let currentUser = null, myUsername = null;
 
 /* ----------------------------- Filmdata (NL) ----------------------------- *
  * Gecureerde lijst. platforms: netflix | prime | hbomax | disney
@@ -1003,7 +1081,7 @@ function swipe(card, liked) {
   const film = deck[deckIndex];
   lastSwipe = { film, liked };
   $('undoBtn').disabled = false;
-  if (liked && film) { myLikes.add(film.id); bumpMyLikes(); }
+  if (liked && film) { myLikes.add(film.id); bumpMyLikes(); saveLike(film); }
   deckIndex++;
   setTimeout(renderDeck, 220);
 }
@@ -1011,7 +1089,7 @@ function swipe(card, liked) {
 function undoSwipe() {
   if (!lastSwipe || deckIndex === 0) return;
   deckIndex--;
-  if (lastSwipe.liked && lastSwipe.film) { myLikes.delete(lastSwipe.film.id); bumpMyLikes(); }
+  if (lastSwipe.liked && lastSwipe.film) { myLikes.delete(lastSwipe.film.id); bumpMyLikes(); removeLikeFromCloud(lastSwipe.film); }
   lastSwipe = null;
   $('undoBtn').disabled = true;
   renderDeck();
@@ -1127,6 +1205,7 @@ let overlayOpen = false;
 let currentMatchFilm = null;
 function celebrate(film) {
   matchQueue.push(film);
+  saveMatch(film);
   if (!overlayOpen) showNextMatch();
 }
 function matchedNames(filmId) {
@@ -1192,6 +1271,168 @@ function renderMyLikes() {
     : 'Alle films die jij leuk vond — jouw persoonlijke kijklijst voor de volgende keer.';
   for (const f of liked) ul.appendChild(filmListItem(f));
 }
+
+/* ----------------------------- Accounts (Supabase) ----------------------------- */
+function authErr(msg) { $('authError').textContent = msg || ''; }
+function setAuthBusy(on) { $('loginBtn').disabled = on; $('registerBtn').disabled = on; }
+
+async function doRegister() {
+  const u = $('authUser').value.trim();
+  const p = $('authPass').value;
+  authErr('');
+  if (u.length < 3) return authErr('Gebruikersnaam minimaal 3 tekens.');
+  if (!/^[a-zA-Z0-9._-]+$/.test(u)) return authErr('Gebruik alleen letters, cijfers, . _ -');
+  if (p.length < 6) return authErr('Wachtwoord minimaal 6 tekens.');
+  setAuthBusy(true);
+  const { data, error } = await sb.auth.signUp({ email: userEmail(u), password: p, options: { data: { display_name: u } } });
+  setAuthBusy(false);
+  if (error) return authErr(/already|registered|exists/i.test(error.message) ? 'Die gebruikersnaam bestaat al — kies "Inloggen".' : error.message);
+  if (!data.session) return authErr('Account gemaakt, maar geen sessie. Zet in Supabase "Confirm email" uit (Authentication → Providers → Email).');
+  await onLoggedIn();
+}
+
+async function doLogin() {
+  const u = $('authUser').value.trim();
+  const p = $('authPass').value;
+  authErr('');
+  if (!u || !p) return authErr('Vul je gebruikersnaam en wachtwoord in.');
+  setAuthBusy(true);
+  const { error } = await sb.auth.signInWithPassword({ email: userEmail(u), password: p });
+  setAuthBusy(false);
+  if (error) return authErr('Onjuiste gebruikersnaam of wachtwoord.');
+  await onLoggedIn();
+}
+
+async function onLoggedIn() {
+  const { data: { user } } = await sb.auth.getUser();
+  currentUser = user;
+  myUsername = (user && user.user_metadata && user.user_metadata.display_name) || (user && user.email ? user.email.split('@')[0] : 'speler');
+  if ($('nameInput')) $('nameInput').value = myUsername;
+  authErr(''); $('authPass').value = '';
+  updateAccountBar();
+  show('home');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; myUsername = null;
+  updateAccountBar();
+  show('auth');
+}
+
+function updateAccountBar() {
+  const bar = $('accountBar'); if (!bar) return;
+  if (currentUser) {
+    bar.innerHTML = `<span>👤 ingelogd als <b>${myUsername}</b></span><span><a id="portalLink">Mijn lijst</a> · <a id="logoutLink">Uitloggen</a></span>`;
+    $('portalLink').onclick = openPortal;
+    $('logoutLink').onclick = doLogout;
+  } else {
+    bar.innerHTML = `<span>Je speelt als gast</span><a id="toLoginLink">Inloggen / account maken</a>`;
+    $('toLoginLink').onclick = () => show('auth');
+  }
+}
+
+/* Sync van likes + matches naar de cloud (alleen ingelogd) */
+function saveLike(film) {
+  if (!currentUser || !film) return;
+  sb.from('watchlist').upsert({
+    user_id: currentUser.id, film_id: film.id, tmdb_id: film.tmdbId || null,
+    title: film.title, year: film.year || null, poster: film.poster || null, platforms: film.platforms || []
+  }, { onConflict: 'user_id,film_id' }).then(({ error }) => { if (error) console.warn('saveLike', error.message); });
+}
+function removeLikeFromCloud(film) {
+  if (!currentUser || !film) return;
+  sb.from('watchlist').delete().eq('user_id', currentUser.id).eq('film_id', film.id)
+    .then(({ error }) => { if (error) console.warn('removeLike', error.message); });
+}
+function saveMatch(film) {
+  if (!currentUser || !film) return;
+  sb.from('match_history').insert({
+    user_id: currentUser.id, room_code: roomCode || null, film_id: film.id,
+    title: film.title, poster: film.poster || null,
+    with_names: matchedNames(film.id).filter(n => n !== 'Jij')
+  }).then(({ error }) => { if (error) console.warn('saveMatch', error.message); });
+}
+
+/* Portal */
+async function openPortal() {
+  if (!currentUser) { show('auth'); return; }
+  $('portalUser').textContent = '👤 ' + myUsername;
+  show('portal');
+  $('portalWatchlist').innerHTML = '<li class="sub" style="border:none;background:none;">Laden…</li>';
+  $('portalMatches').innerHTML = '';
+  const [wlRes, mhRes] = await Promise.all([
+    sb.from('watchlist').select('*').eq('user_id', currentUser.id).order('liked_at', { ascending: false }),
+    sb.from('match_history').select('*').eq('user_id', currentUser.id).order('matched_at', { ascending: false }).limit(50)
+  ]);
+  renderWatchlist(wlRes.data || []);
+  renderHistory(mhRes.data || []);
+}
+
+function cloudThumb(row) {
+  return `<div class="thumb" style="background:${row.poster ? `center/cover no-repeat url('${row.poster}')` : 'linear-gradient(160deg,#434343,#000)'}">${row.poster ? '' : '🎬'}</div>`;
+}
+function renderWatchlist(rows) {
+  const ul = $('portalWatchlist'); ul.innerHTML = '';
+  $('wlCount').textContent = rows.length ? `(${rows.length})` : '';
+  $('wlEmpty').style.display = rows.length ? 'none' : 'block';
+  for (const row of rows) {
+    const li = document.createElement('li');
+    if (row.watched) li.classList.add('wl-watched');
+    const chips = (row.platforms || []).map(p => PLATFORM_META[p] ? `<span class="chip ${p}">${PLATFORM_META[p].name}</span>` : '').join('');
+    li.innerHTML = `
+      ${cloudThumb(row)}
+      <div style="flex:1">
+        <div class="mt">${row.title || row.film_id} <span style="color:var(--muted);font-weight:400">${row.year || ''}</span></div>
+        <div class="chips" style="margin-top:6px">${chips}</div>
+      </div>
+      <div class="wl-actions">
+        <button class="btn-ghost" data-act="watched">${row.watched ? '↺ Terug' : '✓ Gezien'}</button>
+        <button class="btn-ghost" data-act="del">🗑</button>
+      </div>`;
+    li.querySelector('[data-act="watched"]').onclick = async () => {
+      await sb.from('watchlist').update({ watched: !row.watched }).eq('id', row.id);
+      openPortal();
+    };
+    li.querySelector('[data-act="del"]').onclick = async () => {
+      await sb.from('watchlist').delete().eq('id', row.id);
+      myLikes.delete(row.film_id);
+      openPortal();
+    };
+    ul.appendChild(li);
+  }
+}
+function renderHistory(rows) {
+  const ul = $('portalMatches'); ul.innerHTML = '';
+  $('mhEmpty').style.display = rows.length ? 'none' : 'block';
+  for (const row of rows) {
+    const li = document.createElement('li');
+    const withTxt = (row.with_names && row.with_names.length) ? `met ${row.with_names.join(', ')}` : '';
+    li.innerHTML = `
+      ${cloudThumb(row)}
+      <div style="flex:1">
+        <div class="mt">${row.title || row.film_id}</div>
+        <div class="mm">${withTxt}${row.room_code ? ` · room ${row.room_code}` : ''}</div>
+      </div>`;
+    ul.appendChild(li);
+  }
+}
+
+/* Init: bestaande sessie? -> direct ingelogd (onthouden) */
+(async function initAuth() {
+  updateAccountBar();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await onLoggedIn();
+  } catch (e) { console.warn('init auth', e); }
+})();
+
+$('loginBtn').onclick = doLogin;
+$('registerBtn').onclick = doRegister;
+$('guestBtn').onclick = () => { updateAccountBar(); show('home'); };
+$('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('portalBackBtn').onclick = () => show('home');
+$('portalLogoutBtn').onclick = doLogout;
 
 /* ----------------------------- Events ----------------------------- */
 function setLobbyMode(isSolo) {

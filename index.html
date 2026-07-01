@@ -412,6 +412,7 @@
 <!-- GAME -->
 <section id="game" class="screen">
   <div class="topbar">
+    <span class="pill" id="homeBtn" style="cursor:pointer;" title="Terug naar hoofdmenu">🏠</span>
     <span class="pill">🎴 <b id="deckLeft">0</b></span>
     <span class="pill" id="matchesPill" style="cursor:pointer;">💞 <b id="matchCount">0</b></span>
     <span class="pill" id="likesPill" style="cursor:pointer;">❤️ <b id="likeCountPill">0</b></span>
@@ -1573,7 +1574,24 @@ $('copyBtn').onclick = async () => {
   try { await navigator.clipboard.writeText(roomCode); toast('Code gekopieerd 📋'); }
   catch { toast('Code: ' + roomCode); }
 };
-$('leaveBtn').onclick = () => { if (room) room.leave(); location.reload(); };
+// Terug naar het hoofdmenu (ook middenin een spel): room + verbinding netjes afsluiten.
+function goHome() {
+  if (started && !confirm('Terug naar het hoofdmenu? Je verlaat het huidige spel.')) return;
+  if (announceTimer) { clearInterval(announceTimer); announceTimer = null; }
+  if (room) { try { room.leave(); } catch (e) {} room = null; }
+  sendRoster = sendLikes = sendStart = null;
+  started = false; gotStart = false; solo = false; starting = false; isHost = false;
+  roomCode = ''; startPayload = null; myLikesVersion = 0;
+  roster.clear(); likesByPeer.clear(); myLikes.clear(); shownMatches.clear();
+  deck = []; deckIndex = 0; lastSwipe = null;
+  matchQueue = []; overlayOpen = false; currentMatchFilm = null;
+  $('matchOverlay').classList.remove('active');
+  $('sheetWrap').classList.remove('active');
+  updateAccountBar();
+  show('home');
+}
+$('homeBtn').onclick = goHome;
+$('leaveBtn').onclick = goHome;
 
 $('nopeBtn').onclick = () => programmaticSwipe(false);
 $('likeBtn').onclick = () => programmaticSwipe(true);

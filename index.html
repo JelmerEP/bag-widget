@@ -441,9 +441,9 @@
       <div class="seg" id="thresholdPicker"></div>
     </div>
 
-    <h2 style="margin-top:18px;">Volledige catalogus <span style="color:var(--muted);font-weight:400;font-size:14px;">(optioneel)</span></h2>
-    <p class="sub">Plak een gratis TMDB API-sleutel om <b>álle</b> films op te halen die nú op de gekozen platforms in NL staan. Leeg laten = ingebouwde lijst van 97 films. Wordt alleen lokaal opgeslagen.</p>
-    <input id="tmdbKey" type="text" placeholder="TMDB API-sleutel" autocomplete="off" style="margin-top:8px;" />
+    <h2 style="margin-top:18px;">Eigen TMDB-sleutel <span style="color:var(--muted);font-weight:400;font-size:14px;">(optioneel)</span></h2>
+    <p class="sub">De volledige live-catalogus (álle films en series op de gekozen platforms in NL) is <b>standaard actief</b> — je hoeft niets in te vullen. Wil je je eigen TMDB-sleutel gebruiken? Plak 'm hieronder (wordt alleen lokaal opgeslagen).</p>
+    <input id="tmdbKey" type="text" placeholder="Eigen TMDB-sleutel (optioneel)" autocomplete="off" style="margin-top:8px;" />
     <p class="sub" id="tmdbStatus" style="margin-top:6px;"></p>
   </div>
   <div id="guestNote" style="display:none;">
@@ -562,6 +562,11 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const FAKE_DOMAIN = '@moviematch.app';
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true } });
 const userEmail = u => u.toLowerCase().replace(/[^a-z0-9._-]/g, '') + FAKE_DOMAIN;
+
+/* Standaard TMDB read-token (v4) zodat iedereen meteen de live-catalogus heeft.
+ * Read-only en veilig voor de frontend. Een eigen sleutel in de lobby heeft voorrang. */
+const DEFAULT_TMDB_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjNzA2NzE4M2M2ZWEzMzZhMGUyZWJlODUxZWQ3ZjY2MiIsIm5iZiI6MTc4MTkzNDExMi45NDIwMDAyLCJzdWIiOiI2YTM2MjgyMDUwYzJhM2Y1NTYyNzE2YmUiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.-KnbBca_NyjAAriw3V5BOloAANxqLqposO1j36u2QZc';
+const getTmdbKey = () => (localStorage.getItem('tmdb_key') || DEFAULT_TMDB_KEY || '').trim();
 let currentUser = null, myUsername = null;
 
 /* ----------------------------- Filmdata (NL) ----------------------------- *
@@ -1031,7 +1036,7 @@ function renderThresholds() {
 async function hostStart() {
   if (!isHost || starting) return;
   if (roster.size < 2) { toast('Wacht op minstens 1 vriend 🙂'); return; }
-  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  const key = getTmdbKey();
   const seed = [...roomCode].reduce((a, c) => a + c.charCodeAt(0), 7);
   let films;
   if (key) {
@@ -1211,7 +1216,7 @@ function openDetails(film) {
   $('sheetDecide').style.display = (film === deck[deckIndex]) ? '' : 'none';
   $('sheetWrap').classList.add('active');
 
-  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  const key = getTmdbKey();
   if (key && film.tmdbId) loadRichDetails(film, key);
 }
 function closeDetails() { $('sheetWrap').classList.remove('active'); sheetFilm = null; }
@@ -1572,7 +1577,7 @@ $('soloBtn').onclick = () => {
 };
 
 async function soloStart() {
-  const key = (localStorage.getItem('tmdb_key') || '').trim();
+  const key = getTmdbKey();
   const seed = Date.now() >>> 0;   // elke solo-sessie een nieuwe volgorde
   let films;
   if (key) {
@@ -1599,8 +1604,8 @@ function setupTmdbKey() {
     const v = inp.value.trim();
     if (v) localStorage.setItem('tmdb_key', v); else localStorage.removeItem('tmdb_key');
     $('tmdbStatus').innerHTML = v
-      ? '✅ Volledige live catalogus actief — álle films op de gekozen platforms.'
-      : 'ℹ️ Geen sleutel: ingebouwde lijst van 97 films wordt gebruikt.';
+      ? '✅ Je eigen TMDB-sleutel is actief.'
+      : '✅ Volledige live catalogus actief (standaard) — álle films en series op de gekozen platforms.';
   };
   inp.oninput = upd;
   upd();

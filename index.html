@@ -701,6 +701,8 @@ function genreFor(ids, type) {
   return g ? { name:g[0], emoji:g[1] } : { name:'Drama', emoji:'🎬' };
 }
 const isTv = f => !!f && (f.type === 'tv' || (typeof f.id === 'string' && f.id.startsWith('tv')));
+// Herschrijf de maat in een TMDB-afbeeldings-URL (bijv. w500 -> original) voor scherpere covers.
+const imgSize = (url, size) => url ? url.replace(/\/t\/p\/(w\d+|original)\//, '/t/p/' + size + '/') : url;
 
 async function tmdbGet(path, params, key) {
   const url = new URL('https://api.themoviedb.org/3' + path);
@@ -748,8 +750,8 @@ async function fetchLiveDeck(platforms, key, mediaTypes = ['movie'], pagesPerPla
               id, tmdbId: r.id, type: mt, title, year: parseInt((date || '').slice(0, 4)) || '',
               rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
               genre: g.name, emoji: g.emoji, platforms: [],
-              poster: 'https://image.tmdb.org/t/p/w500' + r.poster_path,
-              backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w780' + r.backdrop_path : null,
+              poster: 'https://image.tmdb.org/t/p/w780' + r.poster_path,
+              backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w1280' + r.backdrop_path : null,
               desc: (r.overview || '').slice(0, 150),
               synopsis: (r.overview || '').slice(0, 400)
             };
@@ -1103,7 +1105,7 @@ function buildCard(film, isTop) {
       <div class="emoji">${film.emoji}</div>
       <div class="bigtitle">${film.title}</div>
     </div>
-    ${film.poster ? `<img class="poster-img" src="${film.poster}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+    ${film.poster ? `<img class="poster-img" src="${imgSize(film.poster, 'original')}" alt="" loading="lazy" onerror="this.remove()">` : ''}
     <div class="shade"></div>
     <div class="stamp like">LIKE</div>
     <div class="stamp nope">NOPE</div>
@@ -1199,7 +1201,7 @@ let sheetFilm = null;
 function openDetails(film) {
   if (!film) return;
   sheetFilm = film;
-  const heroImg = film.backdrop || film.poster;
+  const heroImg = imgSize(film.backdrop || film.poster, 'original');
   $('sheetHero').style.background = heroImg
     ? `center/cover no-repeat url("${heroImg}")` : genreGrad(film.genre);
   $('sheetEmoji').textContent = film.poster ? '' : film.emoji;
@@ -1233,7 +1235,7 @@ async function loadRichDetails(film, key) {
 }
 
 function renderRich(d, film) {
-  if (d.backdrop_path) $('sheetHero').style.background = `center/cover no-repeat url("https://image.tmdb.org/t/p/w780${d.backdrop_path}")`;
+  if (d.backdrop_path) $('sheetHero').style.background = `center/cover no-repeat url("https://image.tmdb.org/t/p/original${d.backdrop_path}")`;
   if (d.tagline) { $('sheetTagline').textContent = '“' + d.tagline + '”'; $('sheetTagline').style.display = ''; }
   if (d.overview) $('sheetSyn').textContent = d.overview;
   const tv = isTv(film);
@@ -1324,7 +1326,7 @@ function showNextMatch() {
   currentMatchFilm = film;
   $('matchTitle').textContent = `${film.title}${film.year ? ` (${film.year})` : ''}`;
   $('matchPoster').style.background = film.poster
-    ? `center/cover no-repeat url("${film.poster}"), ${genreGrad(film.genre)}`
+    ? `center/cover no-repeat url("${imgSize(film.backdrop || film.poster, 'w780')}"), ${genreGrad(film.genre)}`
     : genreGrad(film.genre);
   const who = joinNames(matchedNames(film.id));
   $('matchWho').textContent = who ? `${who} ${matchedNames(film.id).length > 1 || who !== 'Jij' ? 'willen' : 'wil'} dit kijken` : '';
@@ -1342,7 +1344,7 @@ function filmListItem(f) {
   const li = document.createElement('li');
   li.style.cursor = 'pointer';
   li.innerHTML = `
-    <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${f.poster}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
+    <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${imgSize(f.poster, 'w342')}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
     <div style="flex:1">
       <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year || ''}</span></div>
       <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
@@ -1470,7 +1472,7 @@ async function openPortal() {
 }
 
 function cloudThumb(row) {
-  return `<div class="thumb" style="background:${row.poster ? `center/cover no-repeat url('${row.poster}')` : 'linear-gradient(160deg,#434343,#000)'}">${row.poster ? '' : '🎬'}</div>`;
+  return `<div class="thumb" style="background:${row.poster ? `center/cover no-repeat url('${imgSize(row.poster, 'w342')}')` : 'linear-gradient(160deg,#434343,#000)'}">${row.poster ? '' : '🎬'}</div>`;
 }
 function renderWatchlist(rows) {
   const ul = $('portalWatchlist'); ul.innerHTML = '';

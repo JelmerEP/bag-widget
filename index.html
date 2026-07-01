@@ -157,6 +157,7 @@
   .chip.disney { background: var(--disney); }
   .chip.videoland { background: var(--videoland); }
   .chip.genre { background: rgba(255,255,255,.16); }
+  .chip.type { background: #3a3a52; }
 
   .stamp {
     position: absolute; top: 26px; z-index: 3; font-size: 30px; font-weight: 900;
@@ -376,7 +377,10 @@
   <ul class="players" id="playerList"></ul>
 
   <div id="hostControls">
-    <h2 style="margin-top:14px;">Platforms</h2>
+    <h2 style="margin-top:14px;">Wat wil je zien?</h2>
+    <div class="seg" id="contentPicker"></div>
+
+    <h2 style="margin-top:18px;">Platforms</h2>
     <p class="sub" id="platformSub">Kies waar jullie op willen swipen.</p>
     <div class="platforms" id="platformPicker"></div>
 
@@ -628,10 +632,18 @@ const TMDB_GENRE = {
   9648:['Mystery','🕵️'], 10749:['Romance','💕'], 878:['Sci-Fi','🚀'], 10770:['Drama','📺'],
   53:['Thriller','🔪'], 10752:['Oorlog','🪖'], 37:['Avontuur','🤠']
 };
-function genreFor(ids) {
-  const g = (ids || []).map(i => TMDB_GENRE[i]).find(Boolean);
+const TMDB_TV_GENRE = {
+  10759:['Actie','💥'], 16:['Animatie','🎨'], 35:['Comedy','😂'], 80:['Misdaad','🔫'],
+  99:['Documentaire','🎥'], 18:['Drama','🎭'], 10751:['Familie','👨‍👩‍👧'], 10762:['Familie','🧒'],
+  9648:['Mystery','🕵️'], 10765:['Sci-Fi','🚀'], 10768:['Oorlog','🪖'], 37:['Avontuur','🤠'],
+  10764:['Realityshow','📸'], 10767:['Talkshow','🎙️'], 10766:['Drama','📺'], 10763:['Documentaire','📰']
+};
+function genreFor(ids, type) {
+  const table = type === 'tv' ? TMDB_TV_GENRE : TMDB_GENRE;
+  const g = (ids || []).map(i => table[i]).find(Boolean);
   return g ? { name:g[0], emoji:g[1] } : { name:'Drama', emoji:'🎬' };
 }
+const isTv = f => !!f && (f.type === 'tv' || (typeof f.id === 'string' && f.id.startsWith('tv')));
 
 async function tmdbGet(path, params, key) {
   const url = new URL('https://api.themoviedb.org/3' + path);
@@ -644,52 +656,57 @@ async function tmdbGet(path, params, key) {
   return res.json();
 }
 
-// Haalt de live NL-catalogus op voor de gekozen platforms en bouwt film-objecten.
-async function fetchLiveDeck(platforms, key, pagesPerPlatform = 8) {
+// Haalt de live NL-catalogus op (films en/of series) voor de gekozen platforms.
+async function fetchLiveDeck(platforms, key, mediaTypes = ['movie'], pagesPerPlatform = 8) {
   const map = new Map();
-  for (const pf of platforms) {
-    for (let page = 1; page <= pagesPerPlatform; page++) {
-      let data;
-      try {
-        data = await tmdbGet('/discover/movie', {
-          watch_region: 'NL',
-          with_watch_providers: PROVIDER_IDS[pf],
-          with_watch_monetization_types: 'flatrate',
-          sort_by: 'popularity.desc',
-          'vote_count.gte': '40',
-          include_adult: 'false',
-          language: 'nl-NL',
-          page: String(page)
-        }, key);
-      } catch (e) {
-        if (page === 1) throw e;   // eerste pagina faalt -> echte fout
-        break;
-      }
-      if (!data.results || !data.results.length) break;
-      for (const r of data.results) {
-        if (!r.poster_path || !r.title) continue;
-        const id = 'tmdb' + r.id;
-        let f = map.get(id);
-        if (!f) {
-          const g = genreFor(r.genre_ids);
-          f = {
-            id, tmdbId: r.id, title: r.title, year: parseInt((r.release_date || '').slice(0, 4)) || '',
-            rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
-            genre: g.name, emoji: g.emoji, platforms: [],
-            poster: 'https://image.tmdb.org/t/p/w500' + r.poster_path,
-            backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w780' + r.backdrop_path : null,
-            desc: (r.overview || '').slice(0, 150),
-            synopsis: (r.overview || '').slice(0, 400)
-          };
-          map.set(id, f);
+  for (const mt of mediaTypes) {
+    for (const pf of platforms) {
+      for (let page = 1; page <= pagesPerPlatform; page++) {
+        let data;
+        try {
+          data = await tmdbGet('/discover/' + mt, {
+            watch_region: 'NL',
+            with_watch_providers: PROVIDER_IDS[pf],
+            with_watch_monetization_types: 'flatrate',
+            sort_by: 'popularity.desc',
+            'vote_count.gte': '40',
+            include_adult: 'false',
+            language: 'nl-NL',
+            page: String(page)
+          }, key);
+        } catch (e) {
+          if (page === 1 && mt === mediaTypes[0] && pf === platforms[0]) throw e;
+          break;
         }
-        if (!f.platforms.includes(pf)) f.platforms.push(pf);
+        if (!data.results || !data.results.length) break;
+        for (const r of data.results) {
+          const title = mt === 'tv' ? r.name : r.title;
+          const date = mt === 'tv' ? r.first_air_date : r.release_date;
+          if (!r.poster_path || !title) continue;
+          const id = (mt === 'tv' ? 'tv' : 'tmdb') + r.id;
+          let f = map.get(id);
+          if (!f) {
+            const g = genreFor(r.genre_ids, mt);
+            f = {
+              id, tmdbId: r.id, type: mt, title, year: parseInt((date || '').slice(0, 4)) || '',
+              rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
+              genre: g.name, emoji: g.emoji, platforms: [],
+              poster: 'https://image.tmdb.org/t/p/w500' + r.poster_path,
+              backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w780' + r.backdrop_path : null,
+              desc: (r.overview || '').slice(0, 150),
+              synopsis: (r.overview || '').slice(0, 400)
+            };
+            map.set(id, f);
+          }
+          if (!f.platforms.includes(pf)) f.platforms.push(pf);
+        }
+        if (page >= (data.total_pages || 1)) break;
       }
-      if (page >= (data.total_pages || 1)) break;
     }
   }
   return [...map.values()];
 }
+const mediaTypesFor = ct => ct === 'both' ? ['movie', 'tv'] : [ct];
 
 function setStartLoading(on, txt) {
   starting = on;
@@ -738,6 +755,7 @@ let sendRoster, sendLikes, sendStart;
 let announceTimer = null, hiddenSince = 0;
 let starting = false;
 let solo = false;
+let contentType = 'movie';   // movie | tv | both
 
 /* ----------------------------- Helpers ----------------------------- */
 function show(screenId) {
@@ -908,6 +926,18 @@ function renderLobby() {
   }
 }
 
+function renderContentType() {
+  const wrap = $('contentPicker'); if (!wrap) return; wrap.innerHTML = '';
+  const opts = [['movie', '🎬 Films'], ['tv', '📺 Series'], ['both', '🎞️ Beide']];
+  for (const [val, label] of opts) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = contentType === val ? 'on' : '';
+    b.onclick = () => { contentType = val; renderContentType(); };
+    wrap.appendChild(b);
+  }
+}
+
 function renderPlatformPicker() {
   const wrap = $('platformPicker'); wrap.innerHTML = '';
   for (const key of Object.keys(PLATFORM_META)) {
@@ -953,16 +983,17 @@ async function hostStart() {
   const seed = [...roomCode].reduce((a, c) => a + c.charCodeAt(0), 7);
   let films;
   if (key) {
-    setStartLoading(true, '🎬 Films ophalen…');
+    setStartLoading(true, contentType === 'tv' ? '📺 Series ophalen…' : '🎬 Ophalen…');
     try {
-      films = await fetchLiveDeck([...selectedPlatforms], key);
+      films = await fetchLiveDeck([...selectedPlatforms], key, mediaTypesFor(contentType));
     } catch (e) {
       toast('TMDB-fout: ' + e.message);
       setStartLoading(false); renderLobby(); return;
     }
     setStartLoading(false);
-    if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); renderLobby(); return; }
+    if (!films.length) { toast('Niks gevonden — controleer sleutel/platforms'); renderLobby(); return; }
   } else {
+    if (contentType === 'tv') { toast('Series vereisen een TMDB-sleutel. Voeg er een toe of kies Films.'); renderLobby(); return; }
     films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
     if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); renderLobby(); return; }
   }
@@ -1028,6 +1059,7 @@ function buildCard(film, isTop) {
       </div>
       <div class="desc">${film.desc || ''}</div>
       <div class="chips">
+        ${isTv(film) ? '<span class="chip type">📺 Serie</span>' : ''}
         <span class="chip genre">${film.genre}</span>
         ${platformChips}
       </div>
@@ -1120,7 +1152,7 @@ function openDetails(film) {
     film.runtime ? `<span>${film.runtime} min</span>` : '',
     `<span>${film.genre}</span>`
   ].filter(Boolean).join('');
-  $('sheetChips').innerHTML = film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
+  $('sheetChips').innerHTML = (isTv(film) ? '<span class="chip type">📺 Serie</span>' : '') + film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
   $('sheetTagline').style.display = 'none';
   $('sheetSyn').textContent = film.synopsis || film.desc || 'Geen beschrijving beschikbaar.';
   $('sheetExtra').innerHTML = '';
@@ -1128,28 +1160,39 @@ function openDetails(film) {
   $('sheetWrap').classList.add('active');
 
   const key = (localStorage.getItem('tmdb_key') || '').trim();
-  if (key && film.tmdbId) loadRichDetails(film.tmdbId, key);
+  if (key && film.tmdbId) loadRichDetails(film, key);
 }
 function closeDetails() { $('sheetWrap').classList.remove('active'); sheetFilm = null; }
 
-async function loadRichDetails(tid, key) {
-  if (detailCache.has(tid)) { if (sheetFilm && sheetFilm.tmdbId === tid) renderRich(detailCache.get(tid)); return; }
+async function loadRichDetails(film, key) {
+  const ckey = film.id, path = isTv(film) ? '/tv/' : '/movie/';
+  if (detailCache.has(ckey)) { if (sheetFilm && sheetFilm.id === ckey) renderRich(detailCache.get(ckey), film); return; }
   $('sheetExtra').innerHTML = '<div class="loading"><span class="spin"></span>Cast &amp; trailer laden…</div>';
   try {
-    const d = await tmdbGet('/movie/' + tid, { language: 'nl-NL', append_to_response: 'credits,videos' }, key);
-    detailCache.set(tid, d);
-    if (sheetFilm && sheetFilm.tmdbId === tid) renderRich(d);
+    const d = await tmdbGet(path + film.tmdbId, { language: 'nl-NL', append_to_response: 'credits,videos' }, key);
+    detailCache.set(ckey, d);
+    if (sheetFilm && sheetFilm.id === ckey) renderRich(d, film);
   } catch (e) { $('sheetExtra').innerHTML = ''; }
 }
 
-function renderRich(d) {
+function renderRich(d, film) {
   if (d.backdrop_path) $('sheetHero').style.background = `center/cover no-repeat url("https://image.tmdb.org/t/p/w780${d.backdrop_path}")`;
   if (d.tagline) { $('sheetTagline').textContent = '“' + d.tagline + '”'; $('sheetTagline').style.display = ''; }
   if (d.overview) $('sheetSyn').textContent = d.overview;
-  const director = (d.credits && d.credits.crew || []).find(c => c.job === 'Director');
+  const tv = isTv(film);
+  let makerLabel = 'Regie', makerName = '';
+  if (tv) {
+    const creators = (d.created_by || []).map(c => c.name);
+    makerLabel = creators.length > 1 ? 'Makers' : 'Maker';
+    makerName = creators.join(', ');
+  } else {
+    const director = (d.credits && d.credits.crew || []).find(c => c.job === 'Director');
+    makerName = director ? director.name : '';
+  }
   const cast = (d.credits && d.credits.cast || []).slice(0, 8);
   let html = '';
-  if (director) html += `<div class="section-h">Regie</div><div class="crew">${director.name}</div>`;
+  if (tv && d.number_of_seasons) html += `<div class="section-h">Omvang</div><div class="crew">${d.number_of_seasons} seizoen${d.number_of_seasons > 1 ? 'en' : ''}${d.number_of_episodes ? ` · ${d.number_of_episodes} afleveringen` : ''}</div>`;
+  if (makerName) html += `<div class="section-h">${makerLabel}</div><div class="crew">${makerName}</div>`;
   if (cast.length) {
     html += '<div class="section-h">Cast</div><div class="cast">' + cast.map(c => `
       <div class="c">
@@ -1459,6 +1502,7 @@ $('createBtn').onclick = () => {
   const code = code4();
   connect(code);
   show('lobby');
+  renderContentType();
   renderPlatformPicker();
   setupTmdbKey();
   renderLobby(); updateConn();
@@ -1469,6 +1513,7 @@ $('soloBtn').onclick = () => {
   isHost = true; threshold = 0;
   setLobbyMode(true);
   show('lobby');
+  renderContentType();
   renderPlatformPicker();
   setupTmdbKey();
   renderLobby();
@@ -1479,12 +1524,13 @@ async function soloStart() {
   const seed = Date.now() >>> 0;   // elke solo-sessie een nieuwe volgorde
   let films;
   if (key) {
-    setStartLoading(true, '🎬 Films ophalen…');
-    try { films = await fetchLiveDeck([...selectedPlatforms], key); }
+    setStartLoading(true, contentType === 'tv' ? '📺 Series ophalen…' : '🎬 Ophalen…');
+    try { films = await fetchLiveDeck([...selectedPlatforms], key, mediaTypesFor(contentType)); }
     catch (e) { toast('TMDB-fout: ' + e.message); setStartLoading(false); return; }
     setStartLoading(false);
-    if (!films.length) { toast('Geen films gevonden — controleer sleutel/platforms'); return; }
+    if (!films.length) { toast('Niks gevonden — controleer sleutel/platforms'); return; }
   } else {
+    if (contentType === 'tv') { toast('Series vereisen een TMDB-sleutel. Voeg er een toe of kies Films.'); return; }
     films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
     if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); return; }
   }
@@ -1548,11 +1594,11 @@ $('sheetWrap').addEventListener('click', e => { if (e.target === $('sheetWrap'))
 // trailer- + waar-kijken-links (gebruikt op het match-scherm)
 function trailerUrl(film) {
   return 'https://www.youtube.com/results?search_query=' +
-    encodeURIComponent((film.title || '') + ' ' + (film.year || '') + ' trailer');
+    encodeURIComponent((film.title || '') + ' ' + (film.year || '') + (isTv(film) ? ' serie trailer' : ' trailer'));
 }
 function watchUrl(film) {
   return film.tmdbId
-    ? `https://www.themoviedb.org/movie/${film.tmdbId}/watch?locale=NL`   // toont NL-aanbieders
+    ? `https://www.themoviedb.org/${isTv(film) ? 'tv' : 'movie'}/${film.tmdbId}/watch?locale=NL`   // toont NL-aanbieders
     : 'https://www.justwatch.com/nl/search?q=' + encodeURIComponent(film.title);
 }
 $('matchTrailer').onclick = () => { if (currentMatchFilm) window.open(trailerUrl(currentMatchFilm), '_blank', 'noopener'); };

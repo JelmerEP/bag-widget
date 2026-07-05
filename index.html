@@ -456,6 +456,12 @@
     <h2 style="margin-top:14px;">Wat wil je zien?</h2>
     <div class="seg" id="contentPicker"></div>
 
+    <div id="personalizeBlock" style="display:none;">
+      <h2 style="margin-top:18px;">Aanbevelingen</h2>
+      <p class="sub">Sorteer je dek op basis van je eigen swipe-smaak.</p>
+      <div class="seg" id="personalizePicker"></div>
+    </div>
+
     <h2 style="margin-top:18px;">Platforms</h2>
     <p class="sub" id="platformSub">Kies waar jullie op willen swipen.</p>
     <div class="platforms" id="platformPicker"></div>
@@ -840,6 +846,8 @@ let announceTimer = null, hiddenSince = 0;
 let starting = false;
 let solo = false;
 let contentType = 'movie';   // movie | tv | both
+let personalize = true;      // solo-dek op eigen smaak sorteren
+let genrePrefs = null;       // Map genre -> voorkeurgewicht (0..1)
 
 /* ----------------------------- Helpers ----------------------------- */
 function show(screenId) {
@@ -1018,6 +1026,19 @@ function renderContentType() {
     b.textContent = label;
     b.className = contentType === val ? 'on' : '';
     b.onclick = () => { contentType = val; renderContentType(); };
+    wrap.appendChild(b);
+  }
+}
+
+function renderPersonalize() {
+  // alleen zinvol in solo én ingelogd
+  $('personalizeBlock').style.display = (solo && currentUser) ? '' : 'none';
+  const wrap = $('personalizePicker'); if (!wrap) return; wrap.innerHTML = '';
+  for (const [val, label] of [[true, '🎯 Op mijn smaak'], [false, '🔀 Willekeurig']]) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = personalize === val ? 'on' : '';
+    b.onclick = () => { personalize = val; renderPersonalize(); };
     wrap.appendChild(b);
   }
 }
@@ -1666,6 +1687,7 @@ $('createBtn').onclick = () => {
   connect(code);
   show('lobby');
   renderContentType();
+  renderPersonalize();
   renderPlatformPicker();
   setupTmdbKey();
   renderLobby(); updateConn();
@@ -1677,10 +1699,35 @@ $('soloBtn').onclick = () => {
   setLobbyMode(true);
   show('lobby');
   renderContentType();
+  renderPersonalize();
   renderPlatformPicker();
   setupTmdbKey();
   renderLobby();
 };
+
+// Haalt genre-voorkeuren op (Laplace-gesmoothde like-ratio per genre, 0..1).
+async function loadGenrePrefs() {
+  if (!currentUser) return null;
+  const { data, error } = await sb.from('swipes').select('genre,liked').eq('user_id', currentUser.id);
+  if (error || !data || !data.length) return null;
+  const agg = new Map();
+  for (const r of data) {
+    if (!r.genre) continue;
+    const a = agg.get(r.genre) || { l: 0, d: 0 };
+    if (r.liked) a.l++; else a.d++;
+    agg.set(r.genre, a);
+  }
+  const prefs = new Map();
+  for (const [g, a] of agg) prefs.set(g, (a.l + 1) / (a.l + a.d + 2));
+  return prefs.size ? prefs : null;
+}
+// Gewogen shuffle (Efraimidis-Spirakis): hoger gewicht -> vaker vooraan, met behoud van variatie.
+function weightedShuffle(items, weightFn) {
+  return items
+    .map(it => ({ it, k: Math.pow(Math.random(), 1 / Math.max(0.05, weightFn(it))) }))
+    .sort((a, b) => b.k - a.k)
+    .map(x => x.it);
+}
 
 async function soloStart() {
   const key = getTmdbKey();
@@ -1697,7 +1744,15 @@ async function soloStart() {
     films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
     if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); return; }
   }
-  deck = seededShuffle(films, seed).slice(0, 400);
+  let ordered;
+  if (personalize && currentUser) {
+    const prefs = await loadGenrePrefs();
+    if (prefs) { ordered = weightedShuffle(films, f => 0.4 + (prefs.get(f.genre) ?? 0.5)); toast('🎯 Gesorteerd op jouw smaak'); }
+    else ordered = seededShuffle(films, seed);
+  } else {
+    ordered = seededShuffle(films, seed);
+  }
+  deck = ordered.slice(0, 400);
   deckIndex = 0;
   gotStart = true;
   startGame();

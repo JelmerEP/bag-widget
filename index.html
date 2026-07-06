@@ -431,6 +431,18 @@
     <div id="mhEmpty" class="sub" style="display:none;">Nog geen matches met vrienden.</div>
   </div>
 
+  <div class="portal-section">
+    <h3>👥 Vrienden <span id="friendCount" style="color:var(--muted)"></span></h3>
+    <div class="row" style="margin-bottom:6px;">
+      <input id="friendInput" type="text" maxlength="20" placeholder="gebruikersnaam" autocomplete="off" />
+      <button id="friendAddBtn" class="btn-ghost" style="flex:none; width:120px;">Toevoegen</button>
+    </div>
+    <p class="sub" id="friendMsg" style="min-height:16px; margin-top:2px;"></p>
+    <ul class="matchlist" id="friendReqs"></ul>
+    <ul class="matchlist" id="friendList"></ul>
+    <div id="friendEmpty" class="sub" style="display:none;">Nog geen vrienden. Voeg iemand toe met hun gebruikersnaam.</div>
+  </div>
+
   <div class="spacer"></div>
   <div class="row" style="margin-top:18px;">
     <button id="portalBackBtn" class="btn-ghost" style="flex:1;">← Terug</button>
@@ -1538,6 +1550,84 @@ async function openPortal() {
   renderDashboard(swRes.data || []);
   renderWatchlist(wlRes.data || []);
   renderHistory(mhRes.data || []);
+  renderFriends();
+}
+
+/* ----------------------------- Vrienden ----------------------------- */
+function friendMsg(t, err) { const el = $('friendMsg'); el.textContent = t || ''; el.style.color = err ? 'var(--nope)' : 'var(--like)'; }
+
+async function addFriend() {
+  const uname = $('friendInput').value.trim().toLowerCase();
+  friendMsg('');
+  if (!uname) return;
+  if (uname === (myUsername || '').toLowerCase()) return friendMsg('Dat ben jij zelf 🙂', true);
+  const { data: prof } = await sb.from('profiles').select('id,display_name,username').eq('username', uname).maybeSingle();
+  if (!prof) return friendMsg('Geen speler gevonden met die gebruikersnaam.', true);
+  const { data: existing } = await sb.from('friendships').select('*')
+    .or(`and(requester.eq.${currentUser.id},addressee.eq.${prof.id}),and(requester.eq.${prof.id},addressee.eq.${currentUser.id})`);
+  if (existing && existing.length) {
+    const e = existing[0];
+    if (e.status === 'accepted') return friendMsg('Jullie zijn al vrienden.', true);
+    if (e.addressee === currentUser.id) {   // zij vroegen mij al -> accepteer
+      await sb.from('friendships').update({ status: 'accepted' }).eq('id', e.id);
+      $('friendInput').value = ''; friendMsg('Verzoek geaccepteerd! 🎉'); return renderFriends();
+    }
+    return friendMsg('Je hebt al een verzoek verstuurd.', true);
+  }
+  const { error } = await sb.from('friendships').insert({ requester: currentUser.id, addressee: prof.id });
+  if (error) return friendMsg('Er ging iets mis: ' + error.message, true);
+  $('friendInput').value = ''; friendMsg('Verzoek verstuurd ✅'); renderFriends();
+}
+
+function friendRow(name, sub, buttons) {
+  const li = document.createElement('li');
+  const av = document.createElement('div');
+  av.className = 'avatar'; av.style.background = colorFor(name); av.textContent = initials(name); av.style.width = '40px'; av.style.height = '40px';
+  const info = document.createElement('div'); info.style.flex = '1';
+  info.innerHTML = `<div class="mt">${name}</div>${sub ? `<div class="mm">${sub}</div>` : ''}`;
+  const acts = document.createElement('div'); acts.className = 'wl-actions';
+  for (const [label, cls, fn] of buttons) { const b = document.createElement('button'); b.className = 'btn-ghost'; b.textContent = label; if (cls) b.style.color = cls; b.onclick = fn; acts.appendChild(b); }
+  li.appendChild(av); li.appendChild(info); li.appendChild(acts);
+  return li;
+}
+
+async function renderFriends() {
+  const { data } = await sb.from('friendships').select('*')
+    .or(`requester.eq.${currentUser.id},addressee.eq.${currentUser.id}`);
+  const rows = data || [];
+  const otherId = r => r.requester === currentUser.id ? r.addressee : r.requester;
+  const ids = [...new Set(rows.map(otherId))];
+  const names = new Map();
+  if (ids.length) {
+    const { data: profs } = await sb.from('profiles').select('id,display_name,username').in('id', ids);
+    for (const p of (profs || [])) names.set(p.id, p.display_name || p.username);
+  }
+  const nameOf = r => names.get(otherId(r)) || 'speler';
+  const incoming = rows.filter(r => r.status === 'pending' && r.addressee === currentUser.id);
+  const outgoing = rows.filter(r => r.status === 'pending' && r.requester === currentUser.id);
+  const friends = rows.filter(r => r.status === 'accepted');
+
+  const reqUl = $('friendReqs'); reqUl.innerHTML = '';
+  for (const r of incoming) {
+    reqUl.appendChild(friendRow(nameOf(r), 'wil je vriend worden', [
+      ['✓ Accepteer', 'var(--like)', async () => { await sb.from('friendships').update({ status: 'accepted' }).eq('id', r.id); renderFriends(); }],
+      ['✕', 'var(--nope)', async () => { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); }]
+    ]));
+  }
+
+  const ul = $('friendList'); ul.innerHTML = '';
+  for (const r of friends) {
+    ul.appendChild(friendRow(nameOf(r), 'vriend', [
+      ['Verwijder', '', async () => { if (confirm('Deze vriend verwijderen?')) { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); } }]
+    ]));
+  }
+  for (const r of outgoing) {
+    ul.appendChild(friendRow(nameOf(r), 'verzoek verstuurd…', [
+      ['Annuleer', '', async () => { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); }]
+    ]));
+  }
+  $('friendCount').textContent = friends.length ? `(${friends.length})` : '';
+  $('friendEmpty').style.display = (friends.length || incoming.length || outgoing.length) ? 'none' : 'block';
 }
 
 function renderDashboard(rows) {
@@ -1660,6 +1750,8 @@ $('guestBtn').onclick = () => { updateAccountBar(); show('home'); };
 $('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 $('portalBackBtn').onclick = () => show('home');
 $('portalLogoutBtn').onclick = doLogout;
+$('friendAddBtn').onclick = addFriend;
+$('friendInput').addEventListener('keydown', e => { if (e.key === 'Enter') addFriend(); });
 
 /* ----------------------------- Events ----------------------------- */
 function setLobbyMode(isSolo) {

@@ -1,0 +1,1957 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0f0f17" />
+<title>FilmMatch — Tinder voor films</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09090f;
+    --bg2: #121219;
+    --surface: #16161f;
+    --card: #16161f;
+    --elevated: #1e1e29;
+    --line: rgba(255,255,255,.08);
+    --line-strong: rgba(255,255,255,.15);
+    --text: #f5f5fa;
+    --muted: #9494ab;
+    --faint: #66667c;
+    --accent: #ff4d7d;
+    --accent2: #8b5cf6;
+    --grad: linear-gradient(135deg, #ff4d7d 0%, #a855f7 100%);
+    --like: #34d399;
+    --nope: #fb5a6a;
+    --star: #ffcb45;
+    --netflix: #e50914;
+    --prime: #00a8e1;
+    --hbomax: #7b5cff;
+    --disney: #2f6bff;
+    --videoland: #ff5a1f;
+    --r-sm: 10px; --r-md: 14px; --r-lg: 20px; --r-xl: 26px; --r-full: 999px;
+    --sh-sm: 0 4px 14px -6px rgba(0,0,0,.5);
+    --sh-md: 0 12px 32px -10px rgba(0,0,0,.6);
+    --sh-lg: 0 28px 64px -16px rgba(0,0,0,.72);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    overscroll-behavior: none; letter-spacing: -.01em;
+  }
+  body {
+    display: flex; flex-direction: column;
+    max-width: 480px; margin: 0 auto;
+    min-height: 100dvh;
+    background:
+      radial-gradient(90% 55% at 50% -8%, rgba(168,85,247,.22) 0%, rgba(168,85,247,0) 60%),
+      radial-gradient(70% 40% at 92% 8%, rgba(255,77,125,.14) 0%, rgba(255,77,125,0) 55%),
+      var(--bg);
+  }
+  .screen {
+    display: none; flex: 1; flex-direction: column;
+    padding: max(22px, env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+    animation: fade .35s ease;
+  }
+  .screen.active { display: flex; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  h1 { font-size: 33px; font-weight: 800; margin: 0; letter-spacing: -.035em; }
+  h2 { font-size: 19px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em; }
+  .sub { color: var(--muted); margin: 6px 0 0; font-size: 14px; line-height: 1.5; }
+
+  .logo { display: flex; align-items: center; gap: 11px; }
+  .logo .mark { font-size: 30px; filter: drop-shadow(0 6px 16px rgba(255,77,125,.45)); }
+  .grad-text { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  input, button, select { font-family: inherit; }
+  .field { margin-top: 16px; }
+  label.lbl { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); margin-bottom: 7px; letter-spacing: 0; }
+  input[type=text], input[type=password] {
+    width: 100%; padding: 15px 16px; font-size: 16px;
+    background: rgba(255,255,255,.045); border: 1px solid var(--line); border-radius: var(--r-md);
+    color: var(--text); outline: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+  input[type=text]:focus, input[type=password]:focus {
+    border-color: var(--accent2); background: rgba(255,255,255,.07);
+    box-shadow: 0 0 0 3px rgba(139,92,246,.22);
+  }
+  input::placeholder { color: var(--faint); }
+  .code-input { text-transform: uppercase; letter-spacing: 8px; font-weight: 700; text-align: center; font-size: 22px; }
+
+  button {
+    cursor: pointer; border: none; border-radius: var(--r-md); font-size: 15.5px; font-weight: 600;
+    padding: 15px 18px; color: #fff; letter-spacing: -.01em;
+    transition: transform .12s ease, box-shadow .22s ease, background .2s, filter .2s, opacity .2s;
+  }
+  button:active { transform: translateY(1px) scale(.985); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--grad);
+    box-shadow: 0 10px 26px -8px rgba(255,77,125,.5), inset 0 1px 0 rgba(255,255,255,.22);
+  }
+  .btn-ghost { background: rgba(255,255,255,.05); border: 1px solid var(--line); color: var(--text); }
+  @media (hover: hover) {
+    .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 14px 32px -8px rgba(255,77,125,.62), inset 0 1px 0 rgba(255,255,255,.22); }
+    .btn-ghost:hover { background: rgba(255,255,255,.09); border-color: var(--line-strong); }
+  }
+  .btn-block { width: 100%; }
+  .row { display: flex; gap: 12px; }
+  .spacer { flex: 1; }
+  .hint { text-align: center; color: var(--faint); font-size: 12px; margin-top: 20px; line-height: 1.6; }
+
+  .toast {
+    position: fixed; bottom: calc(26px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) translateY(8px);
+    background: rgba(30,30,41,.95); border: 1px solid var(--line-strong); color: #fff; padding: 12px 18px; border-radius: var(--r-md);
+    font-size: 14px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 90;
+    box-shadow: var(--sh-md); backdrop-filter: blur(12px); max-width: 88%; text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Lobby */
+  .codebox {
+    margin-top: 10px; background: linear-gradient(160deg, rgba(255,77,125,.1), rgba(139,92,246,.1)), var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-lg); padding: 20px; text-align: center;
+    box-shadow: var(--sh-sm);
+  }
+  .codebox .code { font-size: 42px; font-weight: 800; letter-spacing: 12px; padding-left: 12px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .players { list-style: none; padding: 0; margin: 14px 0 0; }
+  .players li {
+    display: flex; align-items: center; gap: 11px; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); margin-bottom: 8px;
+  }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 700; color: #fff; font-size: 14px; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 4px 9px; border-radius: var(--r-full); background: rgba(255,255,255,.08); color: var(--muted); letter-spacing: .02em; text-transform: uppercase; }
+  .badge.host { background: var(--grad); color: #fff; }
+
+  .platforms { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .pf {
+    display: flex; align-items: center; gap: 10px; padding: 13px 14px;
+    border-radius: var(--r-md); border: 1.5px solid var(--line); background: rgba(255,255,255,.03); cursor: pointer;
+    user-select: none; font-weight: 600; font-size: 14px; color: var(--text);
+    transition: border-color .18s, background .18s, box-shadow .18s, transform .1s;
+  }
+  .pf:active { transform: scale(.98); }
+  .pf .dot { width: 11px; height: 11px; border-radius: 4px; flex: none; box-shadow: 0 0 0 0 currentColor; }
+  .pf.on { border-color: currentColor; background: rgba(255,255,255,.06); box-shadow: 0 0 0 1px currentColor, 0 8px 22px -12px currentColor; }
+  .pf.netflix.on { color: var(--netflix); }
+  .pf.prime.on { color: var(--prime); }
+  .pf.hbomax.on { color: var(--hbomax); }
+  .pf.disney.on { color: var(--disney); }
+  .pf.videoland.on { color: var(--videoland); }
+  .pf.disabled { opacity: .6; pointer-events: none; }
+
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .seg button {
+    flex: 1 1 auto; background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--muted);
+    padding: 11px 14px; font-size: 14px; font-weight: 600; border-radius: var(--r-md); transition: all .18s;
+  }
+  .seg button.on { background: var(--grad); border-color: transparent; color: #fff; box-shadow: 0 8px 20px -8px rgba(255,77,125,.5); }
+
+  /* Game / cards */
+  #game { padding: max(14px, env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom)); }
+  .topbar { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .topbar .pill {
+    background: rgba(255,255,255,.05); border: 1px solid var(--line); padding: 9px 13px; border-radius: var(--r-full);
+    font-size: 13px; font-weight: 600; color: var(--muted); backdrop-filter: blur(8px); transition: background .18s, border-color .18s;
+  }
+  .topbar .pill b { color: var(--text); font-weight: 700; }
+  @media (hover: hover) { .topbar .pill:hover { background: rgba(255,255,255,.09); } }
+  .deck { position: relative; flex: 1; margin: 16px 0; }
+  .card {
+    position: absolute; inset: 0;
+    border-radius: 26px; overflow: hidden;
+    box-shadow: var(--sh-lg), 0 0 0 1px rgba(255,255,255,.06);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    will-change: transform; touch-action: pan-y; background: var(--surface);
+  }
+  .card .poster {
+    position: absolute; inset: 0; z-index: 0;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 24px;
+  }
+  .card .poster-img { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+  .card .poster .emoji { font-size: 64px; opacity: .92; filter: drop-shadow(0 6px 16px rgba(0,0,0,.4)); }
+  .card .poster .bigtitle { font-size: 34px; font-weight: 800; line-height: 1.05; letter-spacing: -.02em; text-shadow: 0 3px 14px rgba(0,0,0,.5); }
+  .card .shade {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 32%, rgba(0,0,0,.35) 62%, rgba(0,0,0,.92) 100%);
+  }
+  .card .info { position: relative; z-index: 2; padding: 20px 22px 22px; }
+  .card .info h3 { margin: 0; font-size: 25px; font-weight: 800; line-height: 1.12; letter-spacing: -.02em; }
+  .card .meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 9px 0; color: #eaeaf2; font-size: 13px; font-weight: 500; }
+  .card .meta .star { color: var(--star); font-weight: 700; }
+  .card .desc { color: #d6d6e2; font-size: 13.5px; line-height: 1.5; margin: 7px 0 12px; max-height: 4.5em; overflow: hidden; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 10.5px; font-weight: 700; padding: 5px 10px; border-radius: var(--r-full); color: #fff; letter-spacing: .01em; box-shadow: inset 0 1px 0 rgba(255,255,255,.16); }
+  .chip.netflix { background: var(--netflix); }
+  .chip.prime { background: var(--prime); }
+  .chip.hbomax { background: var(--hbomax); }
+  .chip.disney { background: var(--disney); }
+  .chip.videoland { background: var(--videoland); }
+  .chip.genre { background: rgba(255,255,255,.18); box-shadow: none; }
+  .chip.type { background: rgba(255,255,255,.1); box-shadow: none; }
+
+  .stamp {
+    position: absolute; top: 28px; z-index: 3; font-size: 30px; font-weight: 900;
+    letter-spacing: 2px; padding: 8px 16px; border-radius: var(--r-md); border: 4px solid;
+    opacity: 0; transform: rotate(-14deg); backdrop-filter: blur(2px);
+  }
+  .stamp.like { left: 22px; color: var(--like); border-color: var(--like); transform: rotate(-16deg); }
+  .stamp.nope { right: 22px; color: var(--nope); border-color: var(--nope); transform: rotate(16deg); }
+
+  .actions { display: flex; justify-content: center; align-items: center; gap: 20px; padding-top: 6px; }
+  .circle {
+    width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 25px; border: 1px solid var(--line); background: rgba(255,255,255,.05); cursor: pointer;
+    box-shadow: var(--sh-sm); transition: transform .12s, box-shadow .2s, background .2s;
+    backdrop-filter: blur(8px);
+  }
+  .circle:active { transform: scale(.88); }
+  .circle.nope { color: var(--nope); }
+  .circle.like { color: var(--like); width: 72px; height: 72px; font-size: 31px; }
+  .circle.info { width: 48px; height: 48px; font-size: 18px; color: var(--accent2); }
+  @media (hover: hover) {
+    .circle.like:hover { background: rgba(52,211,153,.14); box-shadow: 0 12px 28px -8px rgba(52,211,153,.5); }
+    .circle.nope:hover { background: rgba(251,90,106,.12); box-shadow: 0 12px 28px -8px rgba(251,90,106,.45); }
+    .circle:hover { background: rgba(255,255,255,.09); }
+  }
+
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; color: var(--muted); line-height: 1.5; }
+  .empty .big { font-size: 58px; }
+
+  /* Match overlay */
+  .overlay {
+    position: fixed; inset: 0; z-index: 80; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(6,6,11,.78); backdrop-filter: blur(10px);
+  }
+  .overlay.active { display: flex; animation: fade .25s ease; }
+  .matchcard {
+    width: 100%; max-width: 380px; background: var(--bg2); border: 1px solid var(--line-strong);
+    border-radius: var(--r-xl); padding: 26px; text-align: center; animation: pop .42s cubic-bezier(.2,.9,.25,1.1);
+    box-shadow: var(--sh-lg);
+  }
+  @keyframes pop { 0% { transform: scale(.82); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .matchcard .its { font-size: 29px; font-weight: 800; letter-spacing: -.02em; }
+  .matchcard .poster-sm {
+    height: 190px; border-radius: var(--r-md); margin: 18px 0; display: flex; flex-direction: column;
+    justify-content: flex-end; padding: 16px; text-align: left; position: relative; overflow: hidden;
+    box-shadow: var(--sh-md);
+  }
+  .matchcard .poster-sm .t { font-size: 22px; font-weight: 800; letter-spacing: -.02em; position: relative; z-index: 1; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+  .matchcard .poster-sm .sh { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.85)); }
+  .watch-on { color: var(--muted); font-size: 12.5px; font-weight: 500; margin: 10px 0 5px; }
+
+  .matchlist { list-style: none; padding: 0; margin: 14px 0 0; }
+  .matchlist li {
+    display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-md); padding: 11px 12px; margin-bottom: 9px;
+    transition: background .16s, border-color .16s, transform .1s;
+  }
+  .matchlist li:active { transform: scale(.99); }
+  @media (hover: hover) { .matchlist li:hover { background: var(--elevated); border-color: var(--line-strong); } }
+  .matchlist .thumb { width: 48px; height: 68px; border-radius: var(--r-sm); flex: none; display: grid; place-items: center; font-size: 22px; box-shadow: var(--sh-sm); }
+  .matchlist .mt { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+  .matchlist .mm { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  .status { font-size: 12px; color: var(--muted); text-align: center; padding: 8px; }
+  .dotlive { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--like); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 8px var(--like); }
+  .dotlive.off { background: #77778c; box-shadow: none; }
+
+  /* Undo-knop */
+  .circle.undo { width: 48px; height: 48px; font-size: 19px; color: var(--star); }
+  .circle.undo:disabled, .circle.undo.disabled { opacity: .3; pointer-events: none; }
+
+  /* Detail bottom-sheet */
+  .sheet-wrap {
+    position: fixed; inset: 0; z-index: 85; display: none;
+    background: rgba(6,6,11,.62); backdrop-filter: blur(4px);
+  }
+  .sheet-wrap.active { display: block; animation: fade .2s ease; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
+    max-height: 92vh; overflow-y: auto; background: var(--bg2);
+    border-radius: var(--r-xl) var(--r-xl) 0 0; border: 1px solid var(--line-strong); border-bottom: none;
+    transform: translateY(100%); transition: transform .34s cubic-bezier(.2,.85,.25,1);
+    -webkit-overflow-scrolling: touch; box-shadow: 0 -20px 60px -20px rgba(0,0,0,.7);
+  }
+  .sheet-wrap.active .sheet { transform: translateY(0); }
+  .sheet .hero { position: relative; height: 230px; background-size: cover; background-position: center; }
+  .sheet .hero .grad { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,18,25,0) 30%, var(--bg2) 100%); }
+  .sheet .grip { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 42px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.55); z-index: 2; }
+  .sheet-close { position: absolute; top: 12px; right: 12px; z-index: 3; width: 36px; height: 36px; border-radius: 50%;
+                 background: rgba(0,0,0,.5); color: #fff; font-size: 17px; line-height: 1; padding: 0; display: grid; place-items: center;
+                 border: 1px solid rgba(255,255,255,.15); backdrop-filter: blur(6px); }
+  .sheet .hero .heroemoji { position: absolute; bottom: 16px; left: 22px; font-size: 50px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
+  .sheet .body { padding: 4px 22px calc(26px + env(safe-area-inset-bottom)); }
+  .sheet h2 { font-size: 25px; font-weight: 800; margin: 0; line-height: 1.14; letter-spacing: -.025em; }
+  .sheet .submeta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: #cfcfe0; font-size: 13px; font-weight: 500; margin: 11px 0; }
+  .sheet .submeta .star { color: var(--star); font-weight: 700; }
+  .sheet .tagline { font-style: italic; color: var(--accent); margin: 6px 0 14px; font-size: 14px; }
+  .sheet .syn { color: #d9d9e6; font-size: 14.5px; line-height: 1.65; }
+  .sheet .section-h { font-size: 11.5px; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; color: var(--muted); margin: 20px 0 8px; }
+  .sheet .crew { font-size: 14px; color: #eaeaf2; line-height: 1.6; }
+  .sheet .cast { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+  .sheet .cast .c { flex: none; width: 78px; text-align: center; }
+  .sheet .cast .c .ph { width: 72px; height: 72px; border-radius: 50%; background: var(--elevated); background-size: cover; background-position: center; margin: 0 auto 7px; display: grid; place-items: center; font-size: 24px; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+  .sheet .cast .c .nm { font-size: 11.5px; font-weight: 600; line-height: 1.3; color: #eaeaf2; }
+  .sheet .cast .c .ch { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .sheet .actrow { display: flex; gap: 10px; margin-top: 20px; }
+  .sheet .actrow button { flex: 1; font-size: 14px; padding: 13px; }
+  .sheet .decide { display: flex; gap: 16px; justify-content: center; margin-top: 20px; }
+  .sheet .loading { color: var(--muted); font-size: 13px; margin-top: 14px; display: flex; align-items: center; gap: 8px; }
+  .spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp 1s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* Account / auth / portal */
+  .accountbar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 14px;
+    font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .accountbar b { color: var(--text); font-weight: 700; }
+  .accountbar a { color: var(--accent2); cursor: pointer; font-weight: 600; }
+  @media (hover: hover) { .accountbar a:hover { text-decoration: underline; } }
+  .portal-section { margin-top: 22px; }
+  .portal-section h3 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--muted); margin: 0 0 10px; }
+  .wl-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .wl-actions button { padding: 8px 11px; font-size: 12px; border-radius: var(--r-sm); }
+  .wl-watched { opacity: .5; }
+  .wl-watched .mt { text-decoration: line-through; }
+
+  /* Dashboard */
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 13px; }
+  .stat .n { font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .stat .n small { font-size: 13px; font-weight: 600; color: var(--muted); }
+  .stat .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; font-weight: 600; }
+  .dash-sub { font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; color: var(--faint); margin: 20px 0 10px; }
+  .bar-row { display: flex; align-items: center; gap: 11px; margin: 9px 0; }
+  .bar-row .bl { width: 96px; flex: none; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 1; height: 9px; background: rgba(255,255,255,.06); border-radius: var(--r-full); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: var(--r-full); background: var(--grad); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .bar-row .bv { width: 30px; flex: none; text-align: right; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .split { display: flex; height: 12px; border-radius: var(--r-full); overflow: hidden; gap: 2px; background: transparent; margin: 6px 0 8px; }
+  .split > span { height: 100%; }
+  .split-legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); }
+  .split-legend b { color: var(--text); }
+  .split-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+  .dash-empty { text-align: center; color: var(--muted); font-size: 13.5px; line-height: 1.6; padding: 18px 6px; }
+  .dash-empty .big { font-size: 44px; display: block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<section id="auth" class="screen active">
+  <div class="logo">
+    <span class="mark">🎬</span>
+    <h1>Film<span class="grad-text">Match</span></h1>
+  </div>
+  <p class="sub">Maak een account of log in — dan blijven je kijklijst en matches bewaard, ook op een ander apparaat. <b>Geen e-mail nodig</b>: alleen een gebruikersnaam en wachtwoord.</p>
+
+  <div class="field">
+    <label class="lbl">Gebruikersnaam</label>
+    <input id="authUser" type="text" maxlength="20" placeholder="bijv. jelmer" autocomplete="username" />
+  </div>
+  <div class="field">
+    <label class="lbl">Wachtwoord</label>
+    <input id="authPass" type="password" placeholder="minimaal 6 tekens" autocomplete="current-password" />
+  </div>
+  <p id="authError" class="sub" style="color:var(--nope); min-height:18px; margin-top:8px;"></p>
+
+  <div class="field"><button id="loginBtn" class="btn-primary btn-block">Inloggen</button></div>
+  <div class="field"><button id="registerBtn" class="btn-ghost btn-block">Account maken</button></div>
+
+  <div class="spacer"></div>
+  <button id="guestBtn" class="btn-ghost btn-block" style="opacity:.75;">Verder spelen als gast →</button>
+</section>
+
+<!-- HOME -->
+<section id="home" class="screen">
+  <div class="accountbar" id="accountBar"></div>
+  <div class="logo">
+    <span class="mark">🎬</span>
+    <h1>Film<span class="grad-text">Match</span></h1>
+  </div>
+  <p class="sub">Swipe samen met je vrienden door films op Netflix, Prime Video, HBO Max, Disney+ en Videoland (NL). Liket iedereen dezelfde film? Match — tijd om te kijken! 🍿</p>
+
+  <div class="field">
+    <label class="lbl">Jouw naam</label>
+    <input id="nameInput" type="text" maxlength="14" placeholder="bijv. Jelmer" autocomplete="off" />
+  </div>
+
+  <div class="field">
+    <button id="createBtn" class="btn-primary btn-block">Nieuwe room maken</button>
+  </div>
+
+  <div class="field">
+    <button id="soloBtn" class="btn-ghost btn-block">🎬 Speel alleen</button>
+  </div>
+
+  <div class="field">
+    <label class="lbl">Of join met een code</label>
+    <div class="row">
+      <input id="joinCode" type="text" maxlength="4" class="code-input" placeholder="CODE" autocomplete="off" />
+      <button id="joinBtn" class="btn-ghost" style="flex:none; width:120px;">Join</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <p class="hint">Werkt via een directe peer-to-peer verbinding tussen jullie telefoons. Beschikbaarheid van films kan in werkelijkheid wijzigen.</p>
+</section>
+
+<!-- PORTAL (mijn account) -->
+<section id="portal" class="screen">
+  <div class="logo" style="margin-bottom:4px;"><span class="mark">👤</span><h2 id="portalUser">Mijn account</h2></div>
+  <p class="sub">Je persoonlijke dashboard — smaak, kijklijst en matches, overal beschikbaar zolang je ingelogd bent.</p>
+
+  <div class="portal-section" id="dashSection">
+    <h3>📊 Jouw smaak</h3>
+    <div id="dashboard"></div>
+  </div>
+
+  <div class="portal-section">
+    <h3>❤️ Mijn kijklijst <span id="wlCount" style="color:var(--muted)"></span></h3>
+    <ul class="matchlist" id="portalWatchlist"></ul>
+    <div id="wlEmpty" class="sub" style="display:none;">Nog niks bewaard. Like films tijdens het spelen, dan komen ze hier.</div>
+  </div>
+
+  <div class="portal-section">
+    <h3>💞 Match-historie</h3>
+    <ul class="matchlist" id="portalMatches"></ul>
+    <div id="mhEmpty" class="sub" style="display:none;">Nog geen matches met vrienden.</div>
+  </div>
+
+  <div class="portal-section">
+    <h3>👥 Vrienden <span id="friendCount" style="color:var(--muted)"></span></h3>
+    <div class="row" style="margin-bottom:6px;">
+      <input id="friendInput" type="text" maxlength="20" placeholder="gebruikersnaam" autocomplete="off" />
+      <button id="friendAddBtn" class="btn-ghost" style="flex:none; width:120px;">Toevoegen</button>
+    </div>
+    <p class="sub" id="friendMsg" style="min-height:16px; margin-top:2px;"></p>
+    <ul class="matchlist" id="friendReqs"></ul>
+    <ul class="matchlist" id="friendList"></ul>
+    <div id="friendEmpty" class="sub" style="display:none;">Nog geen vrienden. Voeg iemand toe met hun gebruikersnaam.</div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="row" style="margin-top:18px;">
+    <button id="portalBackBtn" class="btn-ghost" style="flex:1;">← Terug</button>
+    <button id="portalLogoutBtn" class="btn-ghost" style="flex:none; width:130px;">Uitloggen</button>
+  </div>
+</section>
+
+<!-- LOBBY -->
+<section id="lobby" class="screen">
+  <div class="logo" style="margin-bottom:6px;">
+    <span class="mark">🎬</span><h2 id="lobbyTitle">Lobby</h2>
+  </div>
+  <div class="codebox" id="codeBox">
+    <div class="lbl" style="margin:0;">Roomcode — deel met je vrienden</div>
+    <div class="code" id="roomCodeView">····</div>
+    <button id="copyBtn" class="btn-ghost" style="margin-top:6px; padding:10px 16px;">📋 Kopieer code</button>
+  </div>
+
+  <h2 style="margin-top:20px;" id="playersHeader">Spelers <span id="playerCount" style="color:var(--muted); font-weight:400;"></span></h2>
+  <ul class="players" id="playerList"></ul>
+
+  <div id="hostControls">
+    <h2 style="margin-top:14px;">Wat wil je zien?</h2>
+    <div class="seg" id="contentPicker"></div>
+
+    <div id="personalizeBlock" style="display:none;">
+      <h2 style="margin-top:18px;">Aanbevelingen</h2>
+      <p class="sub">Sorteer je dek op basis van je eigen swipe-smaak.</p>
+      <div class="seg" id="personalizePicker"></div>
+    </div>
+
+    <h2 style="margin-top:18px;">Platforms</h2>
+    <p class="sub" id="platformSub">Kies waar jullie op willen swipen.</p>
+    <div class="platforms" id="platformPicker"></div>
+
+    <div id="thresholdBlock">
+      <h2 style="margin-top:18px;">Match bij</h2>
+      <p class="sub">Hoeveel spelers moeten dezelfde film liken voor een match?</p>
+      <div class="seg" id="thresholdPicker"></div>
+    </div>
+
+    <h2 style="margin-top:18px;">Eigen TMDB-sleutel <span style="color:var(--muted);font-weight:400;font-size:14px;">(optioneel)</span></h2>
+    <p class="sub">De volledige live-catalogus (álle films en series op de gekozen platforms in NL) is <b>standaard actief</b> — je hoeft niets in te vullen. Wil je je eigen TMDB-sleutel gebruiken? Plak 'm hieronder (wordt alleen lokaal opgeslagen).</p>
+    <input id="tmdbKey" type="text" placeholder="Eigen TMDB-sleutel (optioneel)" autocomplete="off" style="margin-top:8px;" />
+    <p class="sub" id="tmdbStatus" style="margin-top:6px;"></p>
+  </div>
+  <div id="guestNote" style="display:none;">
+    <p class="sub" style="margin-top:18px;">⏳ Wachten tot de host de game start…</p>
+    <h2 style="margin-top:14px;">Platforms</h2>
+    <div class="platforms" id="platformView"></div>
+  </div>
+
+  <div class="spacer"></div>
+  <p class="status" id="statusLine"><span class="dotlive" id="connDot"></span><span id="connText">Verbinden…</span></p>
+  <div class="row">
+    <button id="leaveBtn" class="btn-ghost" style="flex:none; width:110px;">Verlaten</button>
+    <button id="startBtn" class="btn-primary" style="flex:1;">Start de game</button>
+  </div>
+</section>
+
+<!-- GAME -->
+<section id="game" class="screen">
+  <div class="topbar">
+    <span class="pill" id="homeBtn" style="cursor:pointer;" title="Terug naar hoofdmenu">🏠</span>
+    <span class="pill">🎴 <b id="deckLeft">0</b></span>
+    <span class="pill" id="matchesPill" style="cursor:pointer;">💞 <b id="matchCount">0</b></span>
+    <span class="pill" id="likesPill" style="cursor:pointer;">❤️ <b id="likeCountPill">0</b></span>
+  </div>
+  <div id="dbg" style="font-size:11px; color:var(--muted); text-align:center; padding:6px 0 0;"></div>
+
+  <div class="deck" id="deck"></div>
+
+  <div class="actions" id="actions">
+    <button class="circle undo" id="undoBtn" disabled title="Maak je laatste swipe ongedaan">↩</button>
+    <div class="circle nope" id="nopeBtn">✕</div>
+    <div class="circle info" id="infoBtn">ℹ️</div>
+    <div class="circle like" id="likeBtn">♥</div>
+  </div>
+</section>
+
+<!-- MATCHES LIST -->
+<section id="matchesScreen" class="screen">
+  <div class="logo" style="margin-bottom:4px;"><span class="mark">💞</span><h2>Jullie matches</h2></div>
+  <p class="sub">Films die iedereen leuk vond. Veel kijkplezier!</p>
+  <ul class="matchlist" id="matchListFull"></ul>
+  <div id="noMatches" class="empty" style="display:none;">
+    <div class="big">🤷</div>
+    <div>Nog geen matches… misschien hebben jullie te kieskeurige vrienden 😉</div>
+  </div>
+  <div class="spacer"></div>
+  <button id="backToGameBtn" class="btn-ghost btn-block">Terug naar swipen</button>
+</section>
+
+<!-- JOUW LIKES LIST -->
+<section id="likesScreen" class="screen">
+  <div class="logo" style="margin-bottom:4px;"><span class="mark">❤️</span><h2 id="likesTitle">Jouw likes</h2></div>
+  <p class="sub" id="likesSub">Alle films die jij leuk vond — jouw persoonlijke kijklijst.</p>
+  <ul class="matchlist" id="likeListFull"></ul>
+  <div id="noLikes" class="empty" style="display:none;">
+    <div class="big">🎬</div>
+    <div>Nog geen likes… swipe naar rechts op films die je wilt zien!</div>
+  </div>
+  <div class="spacer"></div>
+  <button id="backFromLikesBtn" class="btn-ghost btn-block">Terug naar swipen</button>
+</section>
+
+<!-- MATCH OVERLAY -->
+<div class="overlay" id="matchOverlay">
+  <div class="matchcard">
+    <div class="its">It's a <span class="grad-text">match!</span> 💞</div>
+    <div class="poster-sm" id="matchPoster"><div class="sh"></div><div class="t" id="matchTitle"></div></div>
+    <div class="watch-on" id="matchWho"></div>
+    <div class="watch-on">Te kijken op</div>
+    <div class="chips" id="matchPlatforms" style="justify-content:center; margin-bottom:16px;"></div>
+    <div class="row" style="margin-bottom:10px;">
+      <button id="matchTrailer" class="btn-ghost" style="flex:1;">▶️ Trailer</button>
+      <button id="matchWatch" class="btn-ghost" style="flex:1;">🍿 Waar kijken</button>
+    </div>
+    <button id="keepSwipingBtn" class="btn-primary btn-block">Verder swipen</button>
+  </div>
+</div>
+
+<!-- DETAIL SHEET -->
+<div class="sheet-wrap" id="sheetWrap">
+  <div class="sheet" id="sheet">
+    <div class="hero" id="sheetHero">
+      <div class="grip"></div>
+      <button class="sheet-close" id="sheetClose">✕</button>
+      <div class="grad"></div>
+      <div class="heroemoji" id="sheetEmoji"></div>
+    </div>
+    <div class="body">
+      <h2 id="sheetTitle"></h2>
+      <div class="submeta" id="sheetMeta"></div>
+      <div class="chips" id="sheetChips"></div>
+      <div class="tagline" id="sheetTagline" style="display:none;"></div>
+      <p class="syn" id="sheetSyn"></p>
+      <div id="sheetExtra"></div>
+      <div class="decide" id="sheetDecide">
+        <div class="circle nope" id="sheetNope">✕</div>
+        <div class="circle like" id="sheetLike">♥</div>
+      </div>
+      <button class="btn-ghost btn-block" id="sheetBack" style="margin-top:16px;">Terug</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { joinRoom, selfId } from 'https://esm.sh/trystero@0.21.0/nostr';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/* ----------------------------- Supabase ----------------------------- *
+ * Login = gebruikersnaam + wachtwoord (geen e-mail nodig). De gebruikersnaam
+ * wordt intern aan een nep-e-mail gekoppeld zodat Supabase's veilige
+ * wachtwoord-login + onthouden-sessie werken. */
+const SUPABASE_URL = 'https://ghurrxovcwfqqxyahkku.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdodXJyeG92Y3dmcXF4eWFoa2t1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MjMxMDYsImV4cCI6MjA5ODI5OTEwNn0.a-pDO8De1jc5kXJf5Tx2T5pYkZe4ejVNVX-lRMABA9A';
+const FAKE_DOMAIN = '@moviematch.app';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true } });
+const userEmail = u => u.toLowerCase().replace(/[^a-z0-9._-]/g, '') + FAKE_DOMAIN;
+
+/* Standaard TMDB read-token (v4) zodat iedereen meteen de live-catalogus heeft.
+ * Read-only en veilig voor de frontend. Een eigen sleutel in de lobby heeft voorrang. */
+const DEFAULT_TMDB_KEY = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjNzA2NzE4M2M2ZWEzMzZhMGUyZWJlODUxZWQ3ZjY2MiIsIm5iZiI6MTc4MTkzNDExMi45NDIwMDAyLCJzdWIiOiI2YTM2MjgyMDUwYzJhM2Y1NTYyNzE2YmUiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.-KnbBca_NyjAAriw3V5BOloAANxqLqposO1j36u2QZc';
+const getTmdbKey = () => (localStorage.getItem('tmdb_key') || DEFAULT_TMDB_KEY || '').trim();
+let currentUser = null, myUsername = null;
+
+/* ----------------------------- Filmdata (NL) ----------------------------- *
+ * Gecureerde lijst. platforms: netflix | prime | hbomax | disney
+ * Beschikbaarheid kan in werkelijkheid wijzigen. */
+const FILMS = [
+  { id:'inception', title:'Inception', year:2010, rating:8.8, runtime:148, genre:'Sci-Fi', emoji:'🌀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xlaY2zyzMfkhk0HSC5VUwzoZPU1.jpg", tmdbId:27205, desc:'Een dievenploeg steelt geheimen uit dromen — en moet er nu juist één planten.', synopsis:'Dom Cobb is een meesterdief, gespecialiseerd in het achterhalen van waardevolle geheimen in de droomstaat van een mens, wanneer de geest het meest kwetsbaar is. Hij staat nu voor de taak van "inception", het implanteren van een idee van een ander in het onderbewustzijn van een doelwit.' },
+  { id:'interstellar', title:'Interstellar', year:2014, rating:8.7, runtime:169, genre:'Sci-Fi', emoji:'🚀', platforms:["prime","hbomax"], poster:"https://image.tmdb.org/t/p/w500/yQvGrMoipbRoddT0ZR8tPoR7NfX.jpg", tmdbId:157336, desc:'Astronauten reizen door een wormgat om een nieuw thuis voor de mensheid te vinden.', synopsis:'In de toekomst zijn regeringen en economieën over de hele wereld ingestort. Voedsel is schaars, NASA bestaat niet meer en de 20ste eeuw is de grote schuldige. Wanneer een mysterieus wormgat in de ruimtetijd opengaat is het aan een groep overblijvende onderzoekers van NASA om op verkenning te gaan en de mensheid hoop te bieden.' },
+  { id:'dune2', title:'Dune: Part Two', year:2024, rating:8.5, runtime:166, genre:'Sci-Fi', emoji:'🏜️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg", tmdbId:693134, desc:'Paul Atreides verenigt de Fremen voor een wraakoorlog om Arrakis.', synopsis:'In Dune: Part Two gaat de legendarische reis van Paul Atreides verder in gezelschap van Chani en de Vrijmans, terwijl hij zint op wraak op degenen die voor de ondergang van zijn familie gezorgd hebben. Paul zal moeten kiezen tussen de liefde van zijn leven en het lot van het universum om de vreselijke toekomst te voorkomen die hij als enige voorzien heeft.' },
+  { id:'dune1', title:'Dune', year:2021, rating:8, runtime:155, genre:'Sci-Fi', emoji:'🪐', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/gDzOcq0pfeCeqMBwKIJlSmQpjkZ.jpg", tmdbId:841, desc:'Een jonge edelman komt terecht in een dodelijke strijd om de woestijnplaneet Arrakis.', synopsis:'Het jaar 10191: het gehele universum is afhankelijk van "spice" dat alleen te vinden is op de droge en afgelegen planeet Arrakis. De bewoners van de planeet zijn in afwachting van hun Verlosser die hen zal helpen in een heilige oorlog tegen het slechte Harkonnen keizerrijk. Verfilming van het klassieke boek van Frank Herbert.' },
+  { id:'oppenheimer', title:'Oppenheimer', year:2023, rating:8.3, runtime:180, genre:'Drama', emoji:'💥', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", tmdbId:872585, desc:'Het waargebeurde verhaal achter de man die de atoombom bedacht.', synopsis:'De wetenschapper J. Robert Oppenheimer leidt het zeer geheime Manhattanproject. Onder meer de Hongaarse wetenschapper Edward Teller, die de waterstofbom uitvindt, werkt eraan mee. Oppenheimer is getrouwd met Katherine, maar heeft een affaire met Jean Tatlock, een lid van de Communistische Partij. De overheid acht haar gevaarlijk voor de belangen van de Amerikaanse veiligheid. Oppenheimer is uiteindelijk verantwoordelijk voor de uitvinding van de atoombom.' },
+  { id:'barbie', title:'Barbie', year:2023, rating:6.9, runtime:114, genre:'Comedy', emoji:'🎀', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg", tmdbId:346698, desc:'Barbie krijgt een existentiële crisis en trekt de echte wereld in.', synopsis:'Barbie en Ken hebben de tijd van hun leven in het kleurrijke en schijnbaar perfecte Barbieland. Wanneer ze echter de kans krijgen om naar de echte wereld te gaan, ontdekken ze spoedig de positive en negatieve kanten van het leven onder de mensen.' },
+  { id:'glassonion', title:'Glass Onion', year:2022, rating:7.1, runtime:139, genre:'Mystery', emoji:'🧅', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vDGr1YdrlfbU9wxTOdpf3zChmv9.jpg", tmdbId:661374, desc:'Detective Benoit Blanc ontrafelt een moord op een privé-eiland.', synopsis:'De wereldberoemde detective Benoit Blanc reist naar Griekenland om een mysterie te ontrafelen waarbij een miljardair en zijn bonte vriendengroep zijn betrokken.' },
+  { id:'knivesout', title:'Knives Out', year:2019, rating:7.9, runtime:130, genre:'Mystery', emoji:'🔪', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/pThyQovXQrw2m0s9x82twj48Jq4.jpg", tmdbId:546554, desc:'Een excentrieke familie, een dode patriarch en een briljante speurder.', synopsis:'Na de dood van misdaadromanschrijver Harlan Thrombey, vlak na zijn 85e verjaardag, wordt op mysterieuze wijze de gerenommeerde detective Benoit Blanc ingeschakeld om de waarheid boven tafel te krijgen. Van Harlans disfunctionele familie tot zijn toegewijde personeel, iedereen is een verdachte.' },
+  { id:'topgun2', title:'Top Gun: Maverick', year:2022, rating:8.2, runtime:130, genre:'Actie', emoji:'✈️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg", tmdbId:361743, desc:'Maverick traint een nieuwe lichting piloten voor een onmogelijke missie.', synopsis:'Na meer dan dertig jaar dienst als één van de topvliegers van de marine is Pete Mitchell waar hij thuishoort, door de grenzen te verleggen als moedige testpiloot en de promotie in rang te ontwijken die hem aan de grond zou houden.' },
+  { id:'spiderverse2', title:'Spider-Man: Across the Spider-Verse', year:2023, rating:8.5, runtime:140, genre:'Animatie', emoji:'🕸️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg", tmdbId:569094, desc:'Miles Morales reist door het multiversum vol Spider-People.', synopsis:'Meer dan een jaar na de gebeurtenissen in het vorige deel wordt Miles Morales onverwachts bezocht door zijn vriendin Gwen Stacy. Al gauw wordt hij meegezogen in een missie om alle universums te redden van de Spot, een gevaarlijke maar onervaren tegenstander, die een catastrofale ramp kan veroorzaken. Miles en Gwen reizen samen door het multiversum en ontmoeten hun beschermers, een groep Spider-People die bekend staat als de Spider-Society, geleid door Miguel O\'Hara.' },
+  { id:'everything', title:'Everything Everywhere All at Once', year:2022, rating:7.8, runtime:139, genre:'Sci-Fi', emoji:'🥯', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/u68AjlvlutfEIcpmbYpKcdi09ut.jpg", tmdbId:545611, desc:'Een moeder springt door parallelle universa om de werkelijkheid te redden.', synopsis:'De Chinese immigrante Evelyn poogt haar belastingen in orde te brengen wanneer ze een gek avontuur beleeft. De wereld blijkt in gevaar en enkel zij kan de planeet redden. Ze verkent het universum en ontdekt hierdoor de andere levens die ze had kunnen leiden. Het is maar de vraag of ze in haar missie slaagt wanneer ze het spoor bijster wordt in het eindeloze multiversum.' },
+  { id:'thebatman', title:'The Batman', year:2022, rating:7.8, runtime:176, genre:'Actie', emoji:'🦇', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg", tmdbId:414906, desc:'Een jonge Bruce Wayne jaagt op de Riddler in een rottend Gotham.', synopsis:'Het jaar van verkiezingen in Gotham City. Potentiële kandidaten voor het burgemeesterschap worden één voor één omgebracht door een mysterieus figuur dat bij elk van hen een raadsel achterlaat, geadresseerd aan de Batman. Het wordt vervolgens Batmans missie om te achterhalen wie deze schurk is.' },
+  { id:'avengersendgame', title:'Avengers: Endgame', year:2019, rating:8.4, runtime:181, genre:'Actie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ulzhLuWrPK07P1YkdWQLZnQh1JL.jpg", tmdbId:299534, desc:'De Avengers wagen een laatste poging om Thanos\' daad terug te draaien.', synopsis:'Na de gebeurtenissen in \'Infinity War\' hebben de superhelden een grote tik gekregen. Hun gezamenlijke vijand Thanos is erin geslaagd om alle Infinity Stones te bemachtigen en heeft daarbij de helft van al het leven uitgewist. De overlevende helden, en met name de Avengers, hebben echter weinig tijd om te rouwen om hun vrienden en familie. Ze krijgen namelijk hulp aangeboden van onder meer Ant-Man en Captain Marvel. Allen slaan ze de handen in elkaar om Thanos alsnog te kunnen verslaan en om de miljarden doden die hij veroorzaakte weer tot leven te wekken.' },
+  { id:'guardians3', title:'Guardians of the Galaxy Vol. 3', year:2023, rating:7.9, runtime:150, genre:'Actie', emoji:'🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg", tmdbId:447365, desc:'De Guardians vechten voor Rocket\'s leven en hun eigen toekomst.', synopsis:'Peter Quill, nog steeds aan het bijkomen van het verlies van Gamora, moet zijn team om hem heen verzamelen om het universum te verdedigen en een van hun eigen team te beschermen. Een missie die, als ze niet met succes wordt voltooid, mogelijk zou kunnen leiden tot het einde van de Guardians zoals we die kennen.' },
+  { id:'encanto', title:'Encanto', year:2021, rating:7.2, runtime:102, genre:'Animatie', emoji:'🕯️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/4j0PNHkMr5ax3IA8tjtxcmPU3QT.jpg", tmdbId:568124, desc:'Een magische Colombiaanse familie waarvan alleen Mirabel geen gave heeft.', synopsis:'Mirabel is een 15-jarig meisje en is liefdevol, grappig en feilbaar. Ze is een echt familiemens en woont samen met haar familie in Colombia. Haar hele familie beschikt over magische krachten en woont in een magisch huis. Mirabel zelf beschikt echter nog niet over magische krachten, maar dan is het toch aan haar om hun huis, de Encanto, te redden.' },
+  { id:'soul', title:'Soul', year:2020, rating:8, runtime:100, genre:'Animatie', emoji:'🎹', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6jmppcaubzLF8wkXM36ganVISCo.jpg", tmdbId:508442, desc:'Een jazzmuzikant belandt tussen leven en dood en zoekt zijn vonk.', synopsis:'Wat maakt jou nou eigenlijk jou?  In de gloednieuwe film \'Soul\' van Pixar Animation Studios maak je kennis met Joe Gardner. Joe is muziekleraar op een middelbare school en krijgt de kans om in de beste jazzclub in de stad te spelen. Eén klein missertje zorgt er echter voor dat hij in The Great Before belandt, een magische plek waar nieuwe zielen hun persoonlijkheid, maniertjes en interesses krijgen voordat ze naar de aarde gaan. Joe is vastberaden om terug te keren naar zijn oude leven en schakelt de hulp in van de wijze ziel 22, die dat hele menselijke gedoe maar raar vindt. Terwijl Joe aan 22 wil laten zien wat er zo leuk is aan het leven, ontdekt hij wellicht antwoorden op een aantal levensvragen.' },
+  { id:'wakanda', title:'Black Panther: Wakanda Forever', year:2022, rating:6.7, runtime:161, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/sv1xJUazXeYqALzczSZ3O6nkH75.jpg", tmdbId:505642, desc:'Wakanda rouwt en verdedigt zich tegen een onderwaterrijk.', synopsis:'Koningin Ramonda, Shuri, M\'Baku, Okoye en de Dora Milaje vechten om hun natie te beschermen tegen tussenkomende wereldmachten na de dood van koning T\'Challa. Terwijl de Wakandans ernaar streven hun volgende hoofdstuk te omarmen, moeten de helden samenwerken met de hulp van War Dog Nakia en Everett Ross en een nieuwe weg banen voor het koninkrijk Wakanda.' },
+  { id:'thewhale', title:'The Whale', year:2022, rating:7.7, runtime:117, genre:'Drama', emoji:'🐋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/jQ0gylJMxWSL490sy0RrPj1Lj7e.jpg", tmdbId:785084, desc:'Een teruggetrokken leraar probeert zich met zijn dochter te verzoenen.', synopsis:'Een teruggetrokken leraar Engels met ernstig overgewicht probeert opnieuw contact te leggen met zijn vervreemde tienerdochter voor een laatste kans op verlossing.' },
+  { id:'flowermoon', title:'Killers of the Flower Moon', year:2023, rating:7.6, runtime:206, genre:'Drama', emoji:'🌙', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/dB6Krk806zeqd0YNp2ngQ9zXteH.jpg", tmdbId:466420, desc:'Moorden op de rijke Osage-stam onthullen een gruwelijk complot.', synopsis:'Aan het begin van de 20ste eeuw maakte de vondst van olie de indianen van de Osage Nation plotseling een van de rijkste volken ter wereld. Hun rijkdom trok onmiddellijk blanke profiteurs aan, die de Osage door middel van manipulatie, afpersing en diefstal zo veel mogelijk geld afhandig maakten en ze daarna vermoordden.' },
+  { id:'wednesday', title:'Wednesday', year:2022, rating:8.1, runtime:50, genre:'Mystery', emoji:'🖤', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gl66K7zRdtNYGrxyS2YDUP5ASZd.jpg", tmdbId:1317660, desc:'Wednesday Addams lost een mysterie op haar bizarre kostschool op.', synopsis:'A friend group of 7 goes through their school year, just existing.' },
+  { id:'rednotice', title:'Red Notice', year:2021, rating:6.3, runtime:118, genre:'Actie', emoji:'💎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lAXONuqg41NwUMuzMiFvicDET9Y.jpg", tmdbId:512195, desc:'Een FBI-profiler en twee meesterdieven jagen op hetzelfde kleinood.', synopsis:'Een Interpol-agent krijgt de taak de meest gezochte kunstdief ter wereld op te sporen. Tijdens zijn zoektocht naar de vrouwelijke crimineel kruist zijn pad dat van een beruchte zwendelaar. Noodgedwongen slaan ze de handen in elkaar.' },
+  { id:'graymangray', title:'The Gray Man', year:2022, rating:6.4, runtime:122, genre:'Actie', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/8cXbitsS6dWQ5gfMTZdorpAAzEH.jpg", tmdbId:725201, desc:'Een CIA-huurling wordt opgejaagd nadat hij vuile geheimen ontdekt.', synopsis:'Een tot moord veroordeelde gevangene wordt gerekruteerd als huurmoordenaar voor de CIA. Wanneer hij tijdens een missie in bezit komt van compromitterende informatie over de organisatie, wordt hij zelf het doelwit.' },
+  { id:'dontlookup', title:'Don\'t Look Up', year:2021, rating:7.2, runtime:138, genre:'Comedy', emoji:'☄️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/th4E1yqsE8DGpAseLiUrI60Hf8V.jpg", tmdbId:646380, desc:'Twee astronomen waarschuwen voor een komeet — niemand luistert.', synopsis:'Twee astronomen gaan op mediatour om te waarschuwen dat er een allesvernietigende komeet op weg is richting de aarde. Maar niemand is geïnteresseerd in echt nieuws.' },
+  { id:'themenu', title:'The Menu', year:2022, rating:7.2, runtime:107, genre:'Mystery', emoji:'🍽️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fPtUgMcLIboqlTlPrq0bQpKK8eq.jpg", tmdbId:593643, desc:'Een exclusief diner verandert in een dodelijk culinair spel.', synopsis:'De geliefden Margot en Tyler reizen naar een eiland. Daar mogen ze in een exclusief restaurant uitgebreid dineren onder begeleiding van de chef Slowik. Tijdens het evenement heeft de chef schokkende verrassingen voor zijn gasten in petto.' },
+  { id:'nope', title:'Nope', year:2022, rating:6.8, runtime:130, genre:'Horror', emoji:'🛸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/AcKVlWaNVVVFQwro3nLXqPljcYA.jpg", tmdbId:762504, desc:'Ranch-eigenaren filmen iets onverklaarbaars boven hun vallei.', synopsis:'\'Nope\' volgt enkele inwoners aan de eenzame kloof van het binnenland in Californië. Ze zijn als paardentrainers betrokken bij het maken van een nieuw filmproject. Ze worden vervolgens getuige van een griezelige en huiveringwekkende ontdekking.' },
+  { id:'getout', title:'Get Out', year:2017, rating:7.7, runtime:104, genre:'Horror', emoji:'🫖', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mE24wUCfjK8AoBBjaMjho7Rczr7.jpg", tmdbId:419430, desc:'Een weekend bij de ouders van zijn vriendin loopt griezelig uit de hand.', synopsis:'Chris, een Afro-Amerikaanse jongen, reist met zijn blanke vriendin Rose naar het zuidelijk gelegen landgoed van haar familie om kennis te maken met haar ouders Missy en Dean. Hij doet een serie vreemde ontdekkingen en komt er achter dat er een duistere reden is waarom hij uitgenodigd werd.' },
+  { id:'quietplace', title:'A Quiet Place', year:2018, rating:7.5, runtime:90, genre:'Horror', emoji:'🤫', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nAU74GmpUk7t5iklEp3bufwDq4n.jpg", tmdbId:447332, desc:'Een gezin overleeft in stilte tussen wezens die op geluid jagen.', synopsis:'Terwijl de wereld wordt geterroriseerd door onbekende wezens die jagen op geluid, probeert een gezin te overleven. De wezens kunnen met hun extreem gevoelige gehoor echter al het minste geluid oppikken.' },
+  { id:'parasite', title:'Parasite', year:2019, rating:8.5, runtime:132, genre:'Drama', emoji:'🪜', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/4DGPORlVIDIQvsuSDnM4uXKMjWS.jpg", tmdbId:48311, desc:'Een arme familie nestelt zich sluw in het leven van een rijke familie.', synopsis:'Paul Dean heeft een dodelijke parasiet gecreëerd die nu aan zijn maag vastzit. Hij en zijn vrouwelijke metgezel, Patricia Welles, moeten een manier vinden om het te vernietigen, terwijl ze ook proberen Ricus, zijn rednecks en een kwaadaardige overheidsagent genaamd Merchant te ontwijken.' },
+  { id:'lalaland', title:'La La Land', year:2016, rating:8, runtime:128, genre:'Romance', emoji:'🎷', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/uDO8zWDhfWwoFdKS4fzkUJt0Rf0.jpg", tmdbId:313369, desc:'Een jazzpianist en een actrice in spe verliezen zich in liefde en ambitie.', synopsis:'La La Land is een moderne variant op de klassieke Hollywood-musical en een ode aan iedereen die durft te dromen.  Mia droomt ervan actrice te worden in Hollywood.' },
+  { id:'pastlives', title:'Past Lives', year:2023, rating:7.8, runtime:106, genre:'Romance', emoji:'🌸', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/k3waqVXSnvCZWfJYNtdamTgTtTA.jpg", tmdbId:666277, desc:'Twee jeugdvrienden ontmoeten elkaar na twintig jaar opnieuw.', synopsis:'Nora en Hae Sung, twee diep verbonden jeugdvrienden, worden uit elkaar gerukt als Nora’s familie vanuit Zuid-Korea naar Canada emigreert. Twaalf jaar later studeert Nora in New York en hervinden de twee elkaar via het internet. Ze fantaseren over een wederzien, maar de afstand doet het contact verwateren. Nog eens twaalf jaar later is Nora inmiddels getrouwd en wordt ze tijdens een allesbepalende week herenigd met haar jeugdliefde, als hij haar opzoekt in New York.' },
+  { id:'anyonebutyou', title:'Anyone But You', year:2023, rating:6.2, runtime:104, genre:'Romance', emoji:'💕', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/5qHoazZiaLe7oFBok7XlUhg96f2.jpg", tmdbId:1072790, desc:'Twee exen doen op een bruiloft alsof ze een setje zijn.', synopsis:'Brent en Brent lijken het perfecte stel, maar na een geweldige eerste date gebeurt er iets waardoor hun vurige aantrekkingskracht afkoelt tot het vriespunt – totdat ze onverwachts met elkaar worden opgezadeld op een bruiloft in Australië. En wat doen twee volwassen mensen dan? Net doen alsof ze een stel zijn natuurlijk. Ook wil Jaell Brent afpakken' },
+  { id:'fallguy', title:'The Fall Guy', year:2024, rating:6.9, runtime:126, genre:'Actie', emoji:'🎬', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/e7olqFmzcIX5c23kX4zSmLPJi8c.jpg", tmdbId:746036, desc:'Een stuntman zoekt een verdwenen filmster én zijn ex terug.', synopsis:'Stuntman Colt Seavers heeft net een ongeluk achter de rug en moet een vermiste filmster opsporen, een samenzwering oplossen en proberen de liefde van zijn leven terug te winnen terwijl hij nog steeds zijn dagelijkse werk doet.' },
+  { id:'mi7', title:'Mission: Impossible - Dead Reckoning', year:2023, rating:7.7, runtime:163, genre:'Actie', emoji:'🕴️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/NNxYkU70HPurnNCSiCjYAmacwm.jpg", tmdbId:575264, desc:'Ethan Hunt jaagt op een wapen dat de wereld kan ontwrichten.', synopsis:'In Mission: Impossible - Dead Reckoning Part One beginnen Ethan Hunt en zijn IMF-team aan hun gevaarlijkste missie tot nu toe: het opsporen van een angstaanjagend nieuw wapen dat de hele mensheid bedreigt, voordat het in verkeerde handen valt. Er volgt een dodelijke race rond de wereld waarbij controle over de toekomst en het lot van de wereld op het spel staan en Ethan wordt geconfronteerd met duistere krachten uit zijn verleden. In zijn krachtmeting met een mysterieuze en machtige vijand moet Ethan noodgedwongen de gedachte overwegen dat niets belangrijker kan zijn dan zijn missie, zelfs niet het leven van degenen die hem het meest dierbaar zijn.' },
+  { id:'johnwick4', title:'John Wick: Chapter 4', year:2023, rating:7.7, runtime:169, genre:'Actie', emoji:'🐕', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg", tmdbId:603692, desc:'Wick zoekt vrijheid in een wereldwijde oorlog tegen de High Table.', synopsis:'De strijd tussen John Wick en de High Table blijft voortduren. De prijs op het hoofd van John Wick lijkt steeds meer te stijgen. Van New York tot aan Parijs en van Osaka tot aan Berlijn, John zal het op moeten nemen tegen de sterkste tegenstanders tot nu toe.' },
+  { id:'sicario', title:'Sicario', year:2015, rating:7.6, runtime:121, genre:'Thriller', emoji:'🚙', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/lz8vNyXeidqqOdJW9ZjnDAMb5Vr.jpg", tmdbId:273481, desc:'Een FBI-agente raakt verstrikt in de schimmige drugsoorlog.', synopsis:'Kate Macy is een jonge FBI-agente die deelneemt aan een geheime CIA-operatie om de baas van een Mexicaans drugskartel uit te schakelen. Samen met twee huurlingen steekt ze in Tucson, Arizona de grens over naar Mexico om de drugsbaas te elimineren.' },
+  { id:'prisoners', title:'Prisoners', year:2013, rating:8.2, runtime:153, genre:'Thriller', emoji:'🕯️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/jsS3a3ep2KyBVmmiwaz3LvK49b1.jpg", tmdbId:146233, desc:'Een vader neemt het recht in eigen hand als zijn dochter verdwijnt.', synopsis:'Keller Dover wordt geconfronteerd met de ergste nachtmerrie van een ouder. Zijn zes jaar oude dochter Anna en haar vriendinnetje Joy worden vermist.' },
+  { id:'gonegirl', title:'Gone Girl', year:2014, rating:8.1, runtime:149, genre:'Thriller', emoji:'📰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ts996lKsxvjkO2yiYG0ht4qAicO.jpg", tmdbId:210577, desc:'Een vrouw verdwijnt en alle ogen richten zich op haar man.', synopsis:'Nick en Amy Dunne staan op het punt om hun vijfde huwelijksjaar te vieren. De avond vóór hun jubileum begint Nick echter enige twijfels te krijgen over de stabiliteit van zijn huwelijk en gaat hij op bezoek bij zijn tweelingzus Margo voor advies. Als hij thuis komt blijkt Amy plots verdwenen te zijn. Hij schakelt direct de politie in en na enig onderzoek blijken alle aanwijzingen naar slechts één persoon te leiden: Nick.' },
+  { id:'whiplash', title:'Whiplash', year:2014, rating:8.5, runtime:106, genre:'Drama', emoji:'🥁', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg", tmdbId:244786, desc:'Een jonge drummer wordt tot het uiterste gedreven door een tirannieke docent.', synopsis:'Andrew is een veelbelovende 19-jarige drummer die studeert aan een berucht conservatorium in Manhattan. Hij wil echter niet zo maar een muzikant zijn. Achtervolgd door de mislukte carrière van zijn vader, die schrijver was, en de angst dat het wel eens genetisch kan zijn, droomt hij ervan om de top te bereiken.' },
+  { id:'socialnetwork', title:'The Social Network', year:2010, rating:7.8, runtime:120, genre:'Drama', emoji:'💻', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/n0ybibhJtQ5icDqTp8eRytcIHJx.jpg", tmdbId:37799, desc:'De turbulente geboorte van Facebook en de vriendschappen die sneuvelden.', synopsis:'Herfst, 2003. Na een pijnlijke relatie beëindiging met zijn vriendin Erica, besluit Harvard student Mark Zuckerburg zijn frustraties te uitten door erover te bloggen op zijn computer. Na een aantal drankjes krijgt hij samen met zijn kamergenoot Eduardo Saverin het geweldige idee om foto’s op internet te zetten van de vrouwelijke medestudenten en ze door te sturen naar andere colleges om ze vervolgens te laten beoordelen op uiterlijk.' },
+  { id:'madmax', title:'Mad Max: Fury Road', year:2015, rating:8.1, runtime:120, genre:'Actie', emoji:'🏎️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/hA2ple9q4qnwxp3hKVNhroipsir.jpg", tmdbId:76341, desc:'Een woeste achtervolging door een post-apocalyptische woestijn.', synopsis:'De film speelt zich af in een grimmig woestijnlandschap waar de mensheid is gebroken en waar bijna iedereen gek is en vecht voor de noodzakelijkheden van het leven. In deze wereld van vuur en bloed zijn twee rebellen op de vlucht die misschien wel de orde zouden kunnen herstellen.' },
+  { id:'bladerunner2049', title:'Blade Runner 2049', year:2017, rating:8, runtime:164, genre:'Sci-Fi', emoji:'🌆', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg", tmdbId:335984, desc:'Een blade runner ontdekt een geheim dat de samenleving kan ontwrichten.', synopsis:'Dertig jaar na de gebeurtenissen in de eerste film ontdekt een nieuwe Blade Runner, LAPD agent K, een verborgen geheim dat wat nog overblijft van de huidige maatschappij mogelijk in chaos kan doen verzinken.' },
+  { id:'arrival', title:'Arrival', year:2016, rating:7.9, runtime:116, genre:'Sci-Fi', emoji:'🛸', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/x2FJsf1ElAgr63Y3PNPtJrcmpoe.jpg", tmdbId:329865, desc:'Een taalkundige probeert te communiceren met geland buitenaards leven.', synopsis:'Nadat buitenaardse wezens op de aarde landen, wordt een taalkundige gerekruteerd door de Amerikaanse overheid om de bedoelingen van de wezens te ontcijferen. Terwijl ze de taal van de wezens begint te begrijpen, krijgt ze te maken met een aantal flashbacks.' },
+  { id:'grandbudapest', title:'The Grand Budapest Hotel', year:2014, rating:8.1, runtime:99, genre:'Comedy', emoji:'🛎️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/eWdyYQreja6JGCzqHWXpWHDrrPo.jpg", tmdbId:120467, desc:'Een legendarische conciërge en zijn page beleven een absurd avontuur.', synopsis:'\'The Grand Budapest Hotel\' vertelt het verhaal van een legendarische hotelmanager van een beroemd Europees hotel. Tussen de oorlogen in raakt hij bevriend met een jonge medewerker die een vertrouweling van hem wordt.' },
+  { id:'jojorabbit', title:'Jojo Rabbit', year:2019, rating:7.9, runtime:108, genre:'Comedy', emoji:'🐰', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/7GsM4mtM0worCtIVeiQt28HieeN.jpg", tmdbId:515001, desc:'Een jongen in nazi-Duitsland heeft Hitler als ingebeelde vriend.', synopsis:'Omdat hij naar eigen zeggen geen enkele acteur kon vinden die een komische versie van Adolf Hitler wilde spelen, deed regisseur Taika Waititi het maar zelf.  Hij is het denkbeeldige vriendje van een tienjarige jongen die lid is van de Hitler-Jugend, maar vooral een watje is. Tot ergernis van Der Führer die als een sluwe vos de jongen probeert te manipuleren. Met hilarische en pijnlijke momenten tot gevolg.  Jojo Rabbit is een wrange komedie die vaak schuurt en soms uit de bocht vliegt. Geen enkel facet van het nazitijdperk wordt onder het tapijt geveegd. Jojo ziet met eigen ogen hoe tegenstanders van het regime worden opgehangen. Zijn moeder (een formidabele rol van Scarlett Johansson) zit in het verzet, herbergt een jong Joods meisje als onderduiker, maar laat haar zoon zelf ontdekken hoe deze wereld in elkaar zit.' },
+  { id:'nowayhome', title:'Spider-Man: No Way Home', year:2021, rating:8.2, runtime:148, genre:'Actie', emoji:'🕷️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/1g0dhYtq4irTY1GPXvft6k4YLjm.jpg", tmdbId:634649, desc:'Spider-Man scheurt het multiversum open met desastreuze gevolgen.', synopsis:'Peter Parker is ontmaskerd en kan zijn normale leven niet langer scheiden van de hoge inzet van een superheld zijn.  Wanneer hij om hulp vraagt ​​van Doctor Strange, wordt de inzet nog gevaarlijker, waardoor hij moet ontdekken wat het werkelijk betekent om Spider-Man te zijn.' },
+  { id:'holdovers', title:'The Holdovers', year:2023, rating:7.9, runtime:133, genre:'Comedy', emoji:'❄️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/VHSzNBTwxV8vh7wylo7O9CLdac.jpg", tmdbId:840430, desc:'Een norse leraar zit met een leerling vast op een verlaten campus.', synopsis:'Een chagrijnige instructeur op een middelbare school in New England wordt gedwongen tijdens de kerstvakantie op de campus te blijven om op te passen voor het handjevol studenten die nergens heen kunnen. Uiteindelijk vormt hij een onwaarschijnlijke band met een van hen – een beschadigde, slimme onruststoker – en met de chef-kok van de school, die zojuist een zoon heeft verloren in Vietnam.' },
+  { id:'wolfwallstreet', title:'The Wolf of Wall Street', year:2013, rating:8.2, runtime:180, genre:'Drama', emoji:'💸', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/kW9LmvYHAaS9iA0tHmZVq8hQYoq.jpg", tmdbId:106646, desc:'De spectaculaire opkomst en ondergang van een corrupte beursmagnaat.', synopsis:'Eind jaren 80. Jordan Belfort is een aan drugs, drank en seks verslaafde effectenmakelaar, die door fraude multimiljonair wordt. De voormalige meubelhandelaar Danny Porush is hierbij zijn zakenpartner.' },
+  { id:'django', title:'Django Unchained', year:2012, rating:8.5, runtime:165, genre:'Actie', emoji:'🤠', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/7oWY8VDWW7thTzWh3OKYRkWUlD5.jpg", tmdbId:68718, desc:'Een bevrijde slaaf en een premiejager zoeken zijn vrouw in het diepe Zuiden.', synopsis:'Django Unchained speelt zich af in het zuiden van Amerika, twee jaar voor het uitbreken van de Amerikaanse Burgeroorlog. Django is een slaaf, wiens brute verleden hem in contact brengt met Dr. King Schultz, een Duitse premiejager.' },
+  { id:'darkknight', title:'The Dark Knight', year:2008, rating:9, runtime:152, genre:'Actie', emoji:'🦇', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", tmdbId:155, desc:'Batman neemt het op tegen de chaotische Joker die Gotham terroriseert.', synopsis:'Bruce Wayne, alias Batman, en Lt. James Gordon bundelen hun krachten met de nieuw aangewezen Officier van Justitie Harvey Dent. Samen proberen zij de chaos tegen te gaan die Gotham momenteel teistert, veroorzaakt door niemand minder dan Batmans ergste vijand, The Joker.' },
+  { id:'joker', title:'Joker', year:2019, rating:8.4, runtime:122, genre:'Drama', emoji:'🃏', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/udDclJoHjfjb8Ekgsd4FDteOkCU.jpg", tmdbId:475557, desc:'Een mislukte komiek glijdt af naar waanzin en wordt een symbool van opstand.', synopsis:'De jaren 80. Een clown, Arthur Fleck genaamd, voelt zich uitgekotst en verstoten door de maatschappij. Geleidelijk aan wordt hij krankzinnig, en ontpopt hij zich van vriendelijke, vrolijke clown tot schurk, beter bekend als \'de Joker\'. Iemand die kickt op haat en het creëren van chaos.' },
+  { id:'shutterisland', title:'Shutter Island', year:2010, rating:8.2, runtime:138, genre:'Thriller', emoji:'🌊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nrmXQ0zcZUL8jFLrakWc90IR8z9.jpg", tmdbId:11324, desc:'Een marshal onderzoekt een verdwijning op een eiland vol duistere geheimen.', synopsis:'1954. De U.S. Marshalls Teddy Daniels en zijn nieuwe partner Chuck Aule gaan op zoek naar een moordenares die ontsnapt is uit T.B.S.-kliniek \'Ashecliffe Hospital\' voor langgestraften op Shutter Island, een eiland voor de kust van Boston, Massachusetts.' },
+  { id:'departed', title:'The Departed', year:2006, rating:8.5, runtime:151, genre:'Thriller', emoji:'🚔', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/nT97ifVT2J1yMQmeq20Qblg61T.jpg", tmdbId:1422, desc:'Een mol bij de politie en een undercover agent jagen op elkaar.', synopsis:'Colin Sullivan werkt voor de grote en beruchte gangster Frank Costello en krijgt de taak te infiltreren in het politiekorps van Boston. Tegelijkertijd werkt undercover-agent Billy Costigan zich op in de wereld van Costello en probeert diens vertrouwen te winnen.' },
+  { id:'pulpfiction', title:'Pulp Fiction', year:1994, rating:8.9, runtime:154, genre:'Misdaad', emoji:'🍔', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/vQWk5YBFWF4bZaofAbv0tShwBvQ.jpg", tmdbId:680, desc:'Verweven verhalen van huurmoordenaars, een bokser en een gangsterbaas.', synopsis:'Jules en Vincent werken voor de machtige misdadiger Marsellus Wallace. Vincent komt in de problemen als hij Mia, de vrouw van Wallace, een avondje gezelschap moet houden. Ondertussen is Wallace verwikkeld in een deal met de bokser Butch, die Wallace belazert en er met z\'n geld vandoor gaat.' },
+  { id:'shawshank', title:'The Shawshank Redemption', year:1994, rating:9.3, runtime:142, genre:'Drama', emoji:'⛓️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg", tmdbId:278, desc:'Een onschuldig veroordeelde bankier vindt hoop in een meedogenloze gevangenis.', synopsis:'Andy Dufresne betrapt zijn vrouw met een ander en wordt vervolgens beschuldigd van de moord op zijn vrouw en haar minnaar. Hij houdt vol dat hij onschuldig is, maar krijgt toch tweemaal levenslang in de strenge gevangenis Shawshank.' },
+  { id:'goodfellas', title:'Goodfellas', year:1990, rating:8.7, runtime:145, genre:'Misdaad', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/9OkCLM73MIU2CrKZbqiT8Ln1wY2.jpg", tmdbId:769, desc:'Het waargebeurde leven binnen de meedogenloze New Yorkse maffia.', synopsis:'Henry Hill wil al van jongs af aan bij de maffia. Gangster Jimmy \'The Gent\' Conway staat in hoog aanzien bij zijn misdaadcollega\'s. Hij neemt de jonge Henry onder zijn hoede en leert hem alle fijne kneepjes van het gangstervak.' },
+  { id:'gladiator', title:'Gladiator', year:2000, rating:8.5, runtime:155, genre:'Actie', emoji:'⚔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/wN2xWp1eIwCKOD0BHTcErTBv1Uq.jpg", tmdbId:98, desc:'Een verraden generaal wordt gladiator en zint op wraak tegen de keizer.', synopsis:'De Romeinse generaal Maximus wordt ter dood veroordeeld door Commodus, de boosaardige troonopvolger van Marcus Aurelius. Maximus kan op het nippertje ontsnappen, maar zijn vrouw en zoon worden bruut vermoord.' },
+  { id:'savingprivate', title:'Saving Private Ryan', year:1998, rating:8.6, runtime:169, genre:'Oorlog', emoji:'🪖', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/uqx37cS8cpHg8U35f9U5IBlrCV3.jpg", tmdbId:857, desc:'Soldaten trekken door bezet Frankrijk om één para terug te halen.', synopsis:'Tijdens de geallieerde invasie in Normandië komen twee broers om het leven. Een derde broer sneuvelt gelijktijdig in Nieuw-Guinea tijdens gevechten met de Japanners. Wanneer bekend wordt dat een vierde broer vermist is geraakt op het Franse platteland, wordt een missie gestart om hem veilig thuis te brengen.' },
+  { id:'titanic', title:'Titanic', year:1997, rating:7.9, runtime:194, genre:'Romance', emoji:'🚢', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg", tmdbId:597, desc:'Een onmogelijke liefde aan boord van het schip dat ten onder ging.', synopsis:'De 17-jarige rijke Rose DeWitt Bukater wordt door haar familie gedwongen om zich met Cal Hockley te verloven en binnenkort te gaan trouwen. Tijdens de eerste tocht over de Atlantische zee van de Titanic, een gigantisch passagiersschip dat onzinkbaar wordt geacht, besluit ze zelfmoord te plegen.' },
+  { id:'avatarwater', title:'Avatar: The Way of Water', year:2022, rating:7.6, runtime:192, genre:'Sci-Fi', emoji:'💧', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg", tmdbId:76600, desc:'De familie Sully vlucht en vecht in de oceanen van Pandora.', synopsis:'14 jaar na de gebeurtenissen uit het eerste deel is er een hoop veranderd voor Jake en Neytiri, die ondertussen hun plekje hebben gevonden in het regenwoud van Pandora dat ze thuis kunnen noemen. De twee hebben samen drie Na\'vi kinderen en een geadopteerd vierde mensenkind genaamd Spider. Jake en Neytiri doen er alles aan om dit gezin bij elkaar te houden, maar wanneer ze opnieuw bedreigd worden door RDA-mijnwerkers zijn ze gedwongen hun thuis te verlaten. Zo komen ze terecht in een geheel andere omgeving bij een rif, waar de Metkayina clan woont. Deze omgeving komt echter niet zonder gevaar, zeker niet wanneer blijkt dat het gezin van Jake en Neytiri zich bevindt in een cultuur die ze niet kennen.' },
+  { id:'moana', title:'Moana', year:2016, rating:7.6, runtime:107, genre:'Animatie', emoji:'🌊', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/zKVgiv5qHCvCLT4A2ymJi5QeXDH.jpg", tmdbId:1108427, desc:'Een dappere eilandprinses vaart uit om haar volk te redden.', synopsis:'In het oude Polynesië, wanneer een vreselijke vloek van Maui het eiland van een onstuimig stamhoofd bereikt, beantwoordt zijn eigenzinnige dochter de oproep van de oceaan om de halfgod te zoeken om de zaken recht te zetten. Live-action bewerking van de Disney-animatiefilm \'Moana\' uit 2016' },
+  { id:'coco', title:'Coco', year:2017, rating:8.4, runtime:105, genre:'Animatie', emoji:'💀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg", tmdbId:354912, desc:'Een muzikale jongen belandt in het kleurrijke Land van de Doden.', synopsis:'Miguel droomt ervan om een succesvol muzikant te worden. Ondanks dat muziek al generaties lang uit zijn familie wordt verbannen, is het Miguel’s grootste droom om net zo groot te worden als zijn idool, Ernesto de la Cruz.' },
+  { id:'insideout2', title:'Inside Out 2', year:2024, rating:7.6, runtime:96, genre:'Animatie', emoji:'🧠', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/vpnVM9B6NMmQpWeZvzLvDESb2QY.jpg", tmdbId:1022789, desc:'Nieuwe emoties zorgen voor chaos in het hoofd van tiener Riley.', synopsis:'Het hoofdkwartier van tiener Riley wordt plotseling gesloopt om plaats te maken voor iets geheel onverwachts: nieuwe emoties! Vreugde, Verdriet, Woede, Angst en Walging, die in alle opzichten al lange tijd succesvol zijn, weten niet goed hoe ze zich moeten voelen als angst de kop opsteekt. En het lijkt erop dat ze niet de enige is.' },
+  { id:'deadpool', title:'Deadpool', year:2016, rating:8, runtime:108, genre:'Actie', emoji:'🩸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3E53WEZJqP6aM84D8CckXx4pIHw.jpg", tmdbId:293660, desc:'Een grofgebekte huurling met regeneratiekracht jaagt op de man die hem maakte.', synopsis:'Wade Wilson is een speciale agent van de overheid die, nadat hij onderworpen is aan een behandeling die hem bovenmenselijke genezende krachten heeft gegeven, een alter-ego in de vorm van \'Deadpool\' aanneemt.' },
+  { id:'logan', title:'Logan', year:2017, rating:8.1, runtime:137, genre:'Actie', emoji:'🐾', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/fnbjcRDYn6YviCcePDnGdyAkYsB.jpg", tmdbId:263115, desc:'Een verouderde Wolverine beschermt een jong mutantenmeisje op de vlucht.', synopsis:'In 2029 is de mutant bevolking aanzienlijk geslonken en de X-Men zijn ontbonden. Logan zijn vermogen om zichzelf te genezen is slinkende en hij ontfermt zich nu samen met de mutant Caliban  over de zieke Professor X in een schuilplaats op de grens met Mexico.' },
+  { id:'thorragnarok', title:'Thor: Ragnarok', year:2017, rating:7.9, runtime:131, genre:'Actie', emoji:'⚡', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/rzRwTcFvttcN1ZpX2xv4j3tSdJu.jpg", tmdbId:284053, desc:'Thor moet ontsnappen en Asgard redden van de godin van de dood.', synopsis:'Loki heerst nu over Asgard, nadat hij zijn vader heeft verbannen, maar niemand beseft welke gevaren deze verbanning met zich meebracht. Nu Odin er niet meer is om Asgard te beschermen, weet Hela , de godin van de dood, Asgard binnen te dringen en de macht over te nemen.' },
+  { id:'freeguy', title:'Free Guy', year:2021, rating:7.1, runtime:115, genre:'Comedy', emoji:'🕹️', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/dxraF0qPr1OEgJk17ltQTO84kQF.jpg", tmdbId:550988, desc:'Een NPC in een videogame ontdekt dat hij zijn eigen lot kan kiezen.', synopsis:'Guy (Ryan Reynolds) is een bankmedewerker die elke dag dezelfde routine volgt. Hij wordt wakker, gaat naar zijn werk, overleeft een bankoverval, speelt en verliest altijd een potje softbal en gaat nadien wat met zijn teamgenoten drinken voordat hij naar bed gaat. Op een dag vindt hij echter een bijzondere bril. Eenmaal opgezet ontdekt hij dat hij in een videospel zit.' },
+  { id:'themartian', title:'The Martian', year:2015, rating:8, runtime:144, genre:'Sci-Fi', emoji:'👨‍🚀', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/3ndAx3weG6KDkJIRMCi5vXX6Dyb.jpg", tmdbId:286217, desc:'Een astronaut overleeft alleen op Mars en vecht om naar huis te komen.', synopsis:'Zes dagen geleden werd astronaut Mark Watney een van de eerste mensen die een voet op Mars zette. Nu is hij er zeker van dat hij de eerste zal zijn die er zal sterven. Na een zandstorm blijft hij alleen achter.' },
+  { id:'bohemian', title:'Bohemian Rhapsody', year:2018, rating:7.9, runtime:134, genre:'Muziek', emoji:'🎤', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/lHu1wtNaczFPGFDTrjCSzeLPTKN.jpg", tmdbId:424694, desc:'Het verhaal van Queen en het onvergetelijke optreden van Freddie Mercury.', synopsis:'Bohemian Rhapsody is een ode aan de legendarische rockband Queen, hun unieke muziek en hun buitengewone zanger en frontman Freddie Mercury. Freddie vocht tegen stereotypen, trotseerde conventies en groeide zo uit tot een van de meest geliefde entertainers ter wereld. De film vertelt niet alleen over de bliksemsnelle opkomst van de band, hun revolutionaire geluid en Freddie\'s solocarrière, maar ook over de hereniging en een van de meest legendarische optredens in de geschiedenis van de rockmuziek.' },
+  { id:'revenant', title:'The Revenant', year:2015, rating:8, runtime:156, genre:'Avontuur', emoji:'🐻', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/ji3ecJphATlVgWNY0B0RVXZizdf.jpg", tmdbId:281957, desc:'Een pelsjager kruipt door de wildernis, gedreven door pure wraak.', synopsis:'The Revenant is een episch avontuur van één man over overleven en de buitengewone kracht van de menselijke geest. Diep in de Amerikaanse wildernis wordt jager Hugh Glass voor dood achtergelaten door John Fitzgerald, een onbetrouwbaar lid van zijn gezelschap. Met alleen zijn wil als wapen, begint Glass aan een meedogenloze missie. Hij moet zich een weg zien te banen door een levensgevaarlijke omgeving, en een strenge winter en onderling strijdende stammen overleven om wraak te kunnen nemen op Fitzgerald.' },
+  { id:'1917', title:'1917', year:2019, rating:8.2, runtime:119, genre:'Oorlog', emoji:'🎖️', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/iZf0KyrE25z1sage4SYFLCCrMi9.jpg", tmdbId:530915, desc:'Twee soldaten racen door vijandelijk gebied om een aanval te stoppen.', synopsis:'Tijdens de Eerste Wereldoorlog nemen de jonge, Britse soldaten Schofield en Blake deel aan een gevaarlijke missie. In een race tegen de klok proberen ze op vijandig terrein een boodschap te overhandigen die de levens van honderden soldaten, waaronder Blakes eigen broer, kan redden.' },
+  { id:'bullettrain', title:'Bullet Train', year:2022, rating:7.3, runtime:127, genre:'Actie', emoji:'🚄', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/j8szC8OgrejDQjjMKSVXyaAjw3V.jpg", tmdbId:718930, desc:'Rivaliserende huurmoordenaars zitten vast op dezelfde hogesnelheidstrein.', synopsis:'In Bullet Train zien we Ladybug, een huurmoordenaar die zijn werk voortaan vreedzaam wil verrichten nadat zijn klussen te vaak zijn ontspoord. Het lot lijkt hem niet gunstig gezind, aan boord van de snelste trein op aarde stevent hij af op een confrontatie met dodelijke huurmoordenaars. Deze huurmoordenaars van over de hele wereld hebben stuk voor stuk verwante, maar tegenstrijdige doelen. Hij moet het voor elkaar zien te krijgen om van de trein af te komen.' },
+  { id:'extraction', title:'Extraction', year:2020, rating:6.7, runtime:116, genre:'Actie', emoji:'💣', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/nygOUcBKPHFTbxsYRFZVePqgPK6.jpg", tmdbId:545609, desc:'Een huursoldaat moet de ontvoerde zoon van een drugsbaron bevrijden.', synopsis:'De nieuwste missie van een geharde huurling wordt een louterende race om te overleven wanneer hij naar Bangladesh wordt gestuurd om de ontvoerde zoon van een drugsbaas te redden.' },
+  { id:'enolaholmes', title:'Enola Holmes', year:2020, rating:6.6, runtime:123, genre:'Mystery', emoji:'🔎', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/riYInlsq2kf1AWoGm80JQW5dLKp.jpg", tmdbId:497582, desc:'De pittige jongere zus van Sherlock lost haar eigen eerste zaak op.', synopsis:'Enola Holmes, de jongere zus van Sherlock en Mycroft, wordt in de negentiende eeuw door haar excentrieke moeder Eudoria opgevoed. Wanneer haar moeder op haar zestiende verjaardag spoorloos verdwijnt, vindt Enola verborgen aanwijzingen die haar moeder heeft achtergelaten. Om haar zoektocht te vergemakkelijken, geeft Enola zich uit voor een man en trekt ze naar Londen.' },
+  { id:'allquiet', title:'All Quiet on the Western Front', year:2022, rating:7.8, runtime:148, genre:'Oorlog', emoji:'🥀', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2IRjbi9cADuDMKmHdLK7LaqQDKA.jpg", tmdbId:49046, desc:'Een jonge Duitse soldaat ontdekt de gruwel van de loopgraven.', synopsis:'De 17-jarige Paul gaat in de Eerste Wereldoorlog naar het westfront, maar zijn enthousiasme maakt al vlug plaats voor de harde realiteit van het leven in de loopgraven.' },
+  { id:'societysnow', title:'Society of the Snow', year:2023, rating:7.8, runtime:144, genre:'Drama', emoji:'🏔️', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/2e853FDVSIso600RqAMunPxiZjq.jpg", tmdbId:906126, desc:'Overlevenden van een vliegramp vechten om te overleven in de Andes.', synopsis:'In 1972 stortte een vlucht uit Uruguay diep in de Andes neer. Dit dwong de overlevenden om hun hoop op elkaar te vestigen.' },
+  { id:'leaveworld', title:'Leave the World Behind', year:2023, rating:6.5, runtime:138, genre:'Thriller', emoji:'📡', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/29rhl1xopxA7JlGVVsf1UHfYPvN.jpg", tmdbId:726209, desc:'Een vakantie ontspoort wanneer een mysterieuze cyberaanval het land lamlegt.', synopsis:'Het familie-uitje naar een luxueus huurhuis neemt een onheilspellende wending wanneer een cyberaanval al hun apparaten uitschakelt en twee vreemden aan de deur verschijnen.' },
+  { id:'thekiller', title:'The Killer', year:2023, rating:6.7, runtime:118, genre:'Thriller', emoji:'🎯', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/ipkcgvN7h3yZnbYowthloHLKsf4.jpg", tmdbId:800158, desc:'Een koelbloedige huurmoordenaar jaagt op wraak na een mislukte klus.', synopsis:'Na een mislukte klus gaat een huurmoordenaar de strijd aan met zijn opdrachtgevers en zichzelf tijdens een internationale klopjacht, die volgens hem niet persoonlijk is.' },
+  { id:'saltburn', title:'Saltburn', year:2023, rating:7, runtime:131, genre:'Drama', emoji:'🦋', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/zGTfMwG112BC66mpaveVxoWPOaB.jpg", tmdbId:930564, desc:'Een student raakt geobsedeerd door een rijke klasgenoot en diens landgoed.', synopsis:'Terwijl hij worstelt om zijn plek te vinden aan de Universiteit van Oxford, wordt student Oliver Quick meegezogen in de wereld van de charmante en aristocratische Felix Catton, die hem uitnodigt naar Saltburn, het uitgestrekte landgoed van zijn excentrieke familie, voor een zomer om nooit te vergeten.' },
+  { id:'roadhouse', title:'Road House', year:2024, rating:6, runtime:121, genre:'Actie', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/fDEdtS4P0gJsxHDIt8dG8TR5dx1.jpg", tmdbId:359410, desc:'Een ex-UFC-vechter wordt uitsmijter bij een louche bar in Florida.', synopsis:'Een voormalig UFC-vechter is op zoek naar nieuw werk. Hij neemt vervolgens een baan aan als uitsmijter van een bar, Florida Keys genaamd. Al snel komt hij erachter dat niet alles is wat het lijkt in dit tropische paradijs.' },
+  { id:'air', title:'Air', year:2023, rating:7.4, runtime:112, genre:'Drama', emoji:'👟', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/76AKQPdH3M8cvsFR9K8JsOzVlY5.jpg", tmdbId:964980, desc:'Nike waagt alles om een jonge Michael Jordan te strikken.', synopsis:'\'Air\' vertelt het waargebeurde verhaal van schoenenverkoper Sonny Vaccaro. Om een iconische sneaker voor Nike te creëren gaat hij een samenwerking aan met een basketbalspeler, Michael Jordan genaamd. De deal zal resulteren in een groot succes en is de aanzet tot vele andere overeenkomsten van topsporters.' },
+  { id:'creed3', title:'Creed III', year:2023, rating:6.7, runtime:116, genre:'Drama', emoji:'🥊', platforms:["prime"], poster:"https://image.tmdb.org/t/p/w500/cvsXj3I9Q2iyyIo95AecSd1tad7.jpg", tmdbId:677179, desc:'Adonis Creed neemt het op tegen een vriend uit zijn verleden.', synopsis:'Nadat hij de bokswereld heeft gedomineerd, is het Adonis Creed zowel in zijn carrière als in zijn gezinsleven voor de wind gegaan. Wanneer jeugdvriend en voormalig bokstalent Damian weer opduikt na een lange gevangenisstraf, wil die graag bewijzen dat hij een kans verdient in de ring. De confrontatie tussen de voormalige vrienden is meer dan alleen een bokspartij. Om de rekening te vereffenen moet Adonis zijn toekomst op het spel zetten om het op te nemen tegen Damian, een bokser die niets te verliezen heeft.' },
+  { id:'wonka', title:'Wonka', year:2023, rating:7, runtime:116, genre:'Familie', emoji:'🍫', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qhb1qOilapbapxWQn9jtRCMwXJF.jpg", tmdbId:787699, desc:'Hoe een jonge dromer de beroemdste chocolademaker ter wereld werd.', synopsis:'De jonge Willy Wonka heeft allerlei heerlijke ideeën en is vastbesloten de wereld stapje voor stapje lekkerder te maken. Wat bewijst dat de beste dingen in het leven beginnen met een droom en dat alles mogelijk is als je het geluk hebt om Willy Wonka te ontmoeten.' },
+  { id:'aquaman', title:'Aquaman', year:2018, rating:6.8, runtime:143, genre:'Actie', emoji:'🔱', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/ufl63EFcc5XpByEV2Ecdw6WJZAI.jpg", tmdbId:297802, desc:'De halfbloed troonopvolger moet de onderwaterwereld Atlantis verenigen.', synopsis:'\'Aquaman\' volgt Arthur Curry, erfgenaam van het onderwaterkoninkrijk van Atlantis. Arthur zal uit de schaduw moeten treden en zich een ware leider moeten tonen als Heerser van de 7 Zeeën. Dit moet hij doen tussen een wereld aan de oppervlakte die de zee vernietigt en de spanningen binnen zijn eigen onderwaterrijk.' },
+  { id:'wonderwoman', title:'Wonder Woman', year:2017, rating:7.4, runtime:141, genre:'Actie', emoji:'🛡️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/v4ncgZjG2Zu8ZW5al1vIZTsSjqX.jpg", tmdbId:297762, desc:'Een Amazone-prinses verlaat haar eiland om een wereldoorlog te stoppen.', synopsis:'Een Amazoneprinses verlaat haar weelderige tropische eiland om te leven in een wereld met stedelijke stadsgezichten van glas en staal. Opgeleid door Griekse krijgers en uitgerust met uitzonderlijke gaven is ze de afgezant van de goden die zal uitgroeien tot een van de grootste heldinnen ooit.' },
+  { id:'it2017', title:'It', year:2017, rating:7.3, runtime:135, genre:'Horror', emoji:'🎈', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/9E2y5Q7WlCVNEhP5GiVTjhEhx1o.jpg", tmdbId:346364, desc:'Een groep kinderen verslaat een eeuwenoud kwaad dat als clown verschijnt.', synopsis:'Zomer 1989. \'It\' volgt een groep kinderen, beter bekend als de \'Losers club\', in het kleine stadje Derry, Maine. Op een dag wordt het stadje geterroriseerd door het bloeddorstigste monster It dat het op de kinderen gemunt heeft. Dit monster, dat de vorm van een clown genaamd Pennywise aanneemt, komt lijnrecht tegenover het groepje kinderen te staan dat er alles aan zal moeten doen om het te verdrijven.' },
+  { id:'lotr1', title:'The Lord of the Rings: The Fellowship of the Ring', year:2001, rating:8.9, runtime:178, genre:'Avontuur', emoji:'💍', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/6oom5QYQ2yQTMJIbnvbkBL9cHo6.jpg", tmdbId:120, desc:'Een hobbit begint een gevaarlijke tocht om een machtige ring te vernietigen.', synopsis:'Een eeuwenoude ring, die jaren zoek is geweest, wordt gevonden en komt bij toeval terecht bij de kleine Hobbit Frodo. Als de tovenaar Gandalf erachter komt dat deze ring eigenlijk de Ene Ring is waar de slechte Sauron naar op zoek is, gaat Frodo samen met Gandalf, een Dwerg, een Elf, twee Mensen en drie andere Hobbits op een groots avontuur om deze te vernietigen.' },
+  { id:'harrypotter1', title:'Harry Potter and the Philosopher\'s Stone', year:2001, rating:7.6, runtime:152, genre:'Familie', emoji:'⚡', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wuMc08IPKEatf9rnMNXvIDxqP4W.jpg", tmdbId:671, desc:'Een wees ontdekt dat hij een tovenaar is en gaat naar Zweinstein.', synopsis:'Op zijn elfde verjaardag verneemt Harry Potter dat zijn overleden ouders twee machtige tovenaars waren en dat hij zelf ook over magische krachten beschikt. Hij krijgt zijn opleiding aan Zweinsteins Hogeschool voor Hekserij en Hocus Pocus.' },
+  { id:'conjuring', title:'The Conjuring', year:2013, rating:7.5, runtime:112, genre:'Horror', emoji:'👻', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wVYREutTvI2tmxr6ujrHT704wGF.jpg", tmdbId:138843, desc:'Paranormaal onderzoekers helpen een gezin dat door een demon wordt geterroriseerd.', synopsis:'The Conjuring vertelt het gruwelijke verhaal van de wereldberoemde paranormale onderzoekers Ed en Lorraine Warren. Hun hulp wordt ingeroepen door een gezin dat door een duistere aanwezigheid in hun afgelegen boerderij geterroriseerd wordt.' },
+  { id:'astarisborn', title:'A Star Is Born', year:2018, rating:7.6, runtime:136, genre:'Muziek', emoji:'🎙️', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/wrFpXMNBRj2PBiN4Z5kix51XaIZ.jpg", tmdbId:332562, desc:'Een muzikant ontdekt een zangeres terwijl zijn eigen ster verbleekt.', synopsis:'Jackson Maine is een countryzanger die op de rand van de afgrond staat als hij een getalenteerde onbekende zangeres ontdekt, genaamd Ally. Als de twee een hartstochtelijke liefdesrelatie beginnen zet Jackson Ally in de spotlights en werpt haar in de wereld van de sterren.' },
+  { id:'tenet', title:'Tenet', year:2020, rating:7.3, runtime:150, genre:'Sci-Fi', emoji:'⏳', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/aCIFMriQh8rvhxpN1IWGgvH0Tlg.jpg", tmdbId:577922, desc:'Een agent leert tijd manipuleren om een wereldwijde ramp te voorkomen.', synopsis:'Gewapend met slechts één woord - Tenet - en vechtend voor het voortbestaan ​​van de hele wereld, reist de hoofdrolspeler door een schemerige wereld van internationale spionage op een missie die zich in iets meer dan realtime zal ontvouwen.' },
+  { id:'elvis', title:'Elvis', year:2022, rating:7.3, runtime:159, genre:'Muziek', emoji:'🕺', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/qBOKWqAFbveZ4ryjJJwbie6tXkQ.jpg", tmdbId:614934, desc:'Het turbulente leven van de King of Rock \'n\' Roll en zijn manager.', synopsis:'Elvis Presley is een musicus die niet alleen omringd wordt door zijn vele fans, maar ook door zijn eigen manager. Deze Tom Parker is een raadselachtige man die veel alledaagse zaken uit het leven van Elvis beheert. Deze film volgt hun gecompliceerde relatie over een periode van 20 jaar, vanaf de opkomst van Elvis\' sterrendom tot aan het verlies van de onschuld aan Amerika.' },
+  { id:'furiosa', title:'Furiosa: A Mad Max Saga', year:2024, rating:7.5, runtime:148, genre:'Actie', emoji:'🔥', platforms:["hbomax"], poster:"https://image.tmdb.org/t/p/w500/iADOJ8Zymht2JPMoy3R7xceZprc.jpg", tmdbId:786892, desc:'De jonge Furiosa vecht om te overleven in de woestenij van Mad Max.', synopsis:'Na de ondergang van de wereld wordt de jonge Furiosa meegenomen uit de Green Place of Many Mothers en komt ze in handen van een grote motorbende aangevoerd door Warlord Dementus. Op hun tocht door de woestijn bereiken ze de Citadel, waar Immortan Joe de baas is. Terwijl de twee tirannen om de macht strijden, moet Furiosa vele beproevingen doorstaan en een manier vinden om terug te kunnen keren naar huis.' },
+  { id:'irishman', title:'The Irishman', year:2019, rating:7.8, runtime:209, genre:'Misdaad', emoji:'🎩', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/mbm8k3GFhXS0ROd9AD1gqYbIFbM.jpg", tmdbId:398978, desc:'Een huurmoordenaar blikt terug op zijn rol in de maffia en de moord op Hoffa.', synopsis:'Frank Sheeran is een veteraan van de Tweede Wereldoorlog die uitgroeit tot een gerenommeerde huurmoordenaar. Hij zou volgens geruchten een rol hebben gespeeld in de verdwijning van vakbondsleider Jimmy Hoffa.' },
+  { id:'rebelridge', title:'Rebel Ridge', year:2024, rating:7.1, runtime:131, genre:'Thriller', emoji:'🚓', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/xEt2GSz9z5rSVpIHMiGdtf0czyf.jpg", tmdbId:646097, desc:'Een ex-marinier neemt het op tegen een corrupt politiekorps.', synopsis:'Een ex-marinier gaat de strijd aan met de corruptie in een kleine plaats als de politie onterecht het geld inpikt dat hij nodig heeft voor de borgtocht van zijn neef.' },
+  { id:'hitman', title:'Hit Man', year:2023, rating:6.9, runtime:115, genre:'Comedy', emoji:'🔫', platforms:["netflix"], poster:"https://image.tmdb.org/t/p/w500/oil3EZwKFp3CWxZnfGfGglesvm9.jpg", tmdbId:974635, desc:'Een brave professor speelt nep-huurmoordenaar en valt voor een cliënt.', synopsis:'Professor Gary Johnson doet zich voor als huurmoordenaar namens de politie van New Orleans. Gary is zéér begaafd in het schakelen tussen verschillende persoonlijkheden om voor iedereen de perfecte hit man te zijn. Hij komt in een lastige situatie terecht als hij gevoelens begint te ontwikkelen voor een van zijn potentiële klanten, de beeldschone Madison (gespeeld door Adria Arjona). Als Madison verliefd wordt op een van Gary\'s alter ego\'s - de mysterieuze en sexy Ron - zorgt hun affaire voor een opeenvolging van leugens, bedrog en escalerende belangen.' },
+  { id:'incrediblesfamily', title:'The Incredibles', year:2004, rating:8, runtime:115, genre:'Animatie', emoji:'🦸', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/2LqaLgk4Z226KkgPJuiOQ58wvrm.jpg", tmdbId:9806, desc:'Een gezin van superhelden moet hun krachten weer inzetten om de wereld te redden.', synopsis:'Bob Parr en zijn vrouw Helen behoorden vroeger tot de groep van \'s werelds grootste misdaadbestrijders. Levens redden en het kwaad bestrijden was hun dagelijks werk. Maar vijftien jaar later zijn ze gedwongen om als gewone burgers te leven en zich terug te trekken in een buitenwijk. Ze wonen daar als "normaal" gezin met hun drie kinderen, Violet, Dash en Jack Jack.' },
+  { id:'upmovie', title:'Up', year:2009, rating:8.3, runtime:96, genre:'Animatie', emoji:'🎈', platforms:["disney"], poster:"https://image.tmdb.org/t/p/w500/mFvoEwSfLqbcWwFsDjQebn9bzFe.jpg", tmdbId:14160, desc:'Een norse weduwnaar vliegt met ballonnen naar Zuid-Amerika — met verstekeling.', synopsis:'Carl Fredricksen is een gepensioneerde ballonnenverkoper, maar ook een schavuit en dromer, die klaar is om zijn laatste kans op avontuur hoog in de wolken te grijpen. Carl maakt duizenden ballonnen aan zijn huis vast en stijgt op om af te reizen naar de verloren dromen van zijn jeugd. Wat Carl niet weet, is dat Russell, een 8-jarige padvinder die nooit verder is geweest dan zijn achtertuin, op het verkeerde moment op de verkeerde plek is, namelijk op Carl’s veranda! Terwijl ze samen vastzitten in de woeste jungle, realiseert Carl zich dat de grootste avonturen in het leven soms anders uitpakken dan je zelf gedacht had.' },
+];
+
+const PLATFORM_META = {
+  netflix:   { name:'Netflix', short:'N' },
+  prime:     { name:'Prime Video', short:'P' },
+  hbomax:    { name:'HBO Max', short:'H' },
+  disney:    { name:'Disney+', short:'D' },
+  videoland: { name:'Videoland', short:'V' }
+};
+
+/* TMDB watch-provider-id's voor regio NL (pipe = OR) */
+const PROVIDER_IDS = { netflix:'8', prime:'9|119|2100', hbomax:'1899|384', disney:'337', videoland:'72' };
+const TMDB_GENRE = {
+  28:['Actie','💥'], 12:['Avontuur','🧭'], 16:['Animatie','🎨'], 35:['Comedy','😂'],
+  80:['Misdaad','🔫'], 99:['Documentaire','🎥'], 18:['Drama','🎭'], 10751:['Familie','👨‍👩‍👧'],
+  14:['Fantasy','🐉'], 36:['Drama','📜'], 27:['Horror','👻'], 10402:['Muziek','🎵'],
+  9648:['Mystery','🕵️'], 10749:['Romance','💕'], 878:['Sci-Fi','🚀'], 10770:['Drama','📺'],
+  53:['Thriller','🔪'], 10752:['Oorlog','🪖'], 37:['Avontuur','🤠']
+};
+const TMDB_TV_GENRE = {
+  10759:['Actie','💥'], 16:['Animatie','🎨'], 35:['Comedy','😂'], 80:['Misdaad','🔫'],
+  99:['Documentaire','🎥'], 18:['Drama','🎭'], 10751:['Familie','👨‍👩‍👧'], 10762:['Familie','🧒'],
+  9648:['Mystery','🕵️'], 10765:['Sci-Fi','🚀'], 10768:['Oorlog','🪖'], 37:['Avontuur','🤠'],
+  10764:['Realityshow','📸'], 10767:['Talkshow','🎙️'], 10766:['Drama','📺'], 10763:['Documentaire','📰']
+};
+function genreFor(ids, type) {
+  const table = type === 'tv' ? TMDB_TV_GENRE : TMDB_GENRE;
+  const g = (ids || []).map(i => table[i]).find(Boolean);
+  return g ? { name:g[0], emoji:g[1] } : { name:'Drama', emoji:'🎬' };
+}
+const isTv = f => !!f && (f.type === 'tv' || (typeof f.id === 'string' && f.id.startsWith('tv')));
+// Herschrijf de maat in een TMDB-afbeeldings-URL (bijv. w500 -> original) voor scherpere covers.
+const imgSize = (url, size) => url ? url.replace(/\/t\/p\/(w\d+|original)\//, '/t/p/' + size + '/') : url;
+
+async function tmdbGet(path, params, key) {
+  const url = new URL('https://api.themoviedb.org/3' + path);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const opts = {};
+  if (key.includes('.')) opts.headers = { Authorization: 'Bearer ' + key };  // v4 token
+  else url.searchParams.set('api_key', key);                                 // v3 key
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(res.status === 401 ? 'ongeldige sleutel (401)' : 'status ' + res.status);
+  return res.json();
+}
+
+// Haalt de live NL-catalogus op (films en/of series) voor de gekozen platforms.
+async function fetchLiveDeck(platforms, key, mediaTypes = ['movie'], pagesPerPlatform = 8) {
+  const map = new Map();
+  for (const mt of mediaTypes) {
+    for (const pf of platforms) {
+      for (let page = 1; page <= pagesPerPlatform; page++) {
+        let data;
+        try {
+          data = await tmdbGet('/discover/' + mt, {
+            watch_region: 'NL',
+            with_watch_providers: PROVIDER_IDS[pf],
+            with_watch_monetization_types: 'flatrate',
+            sort_by: 'popularity.desc',
+            'vote_count.gte': '40',
+            include_adult: 'false',
+            language: 'nl-NL',
+            page: String(page)
+          }, key);
+        } catch (e) {
+          if (page === 1 && mt === mediaTypes[0] && pf === platforms[0]) throw e;
+          break;
+        }
+        if (!data.results || !data.results.length) break;
+        for (const r of data.results) {
+          const title = mt === 'tv' ? r.name : r.title;
+          const date = mt === 'tv' ? r.first_air_date : r.release_date;
+          if (!r.poster_path || !title) continue;
+          const id = (mt === 'tv' ? 'tv' : 'tmdb') + r.id;
+          let f = map.get(id);
+          if (!f) {
+            const g = genreFor(r.genre_ids, mt);
+            f = {
+              id, tmdbId: r.id, type: mt, title, year: parseInt((date || '').slice(0, 4)) || '',
+              rating: Math.round((r.vote_average || 0) * 10) / 10, runtime: 0,
+              genre: g.name, emoji: g.emoji, platforms: [],
+              poster: 'https://image.tmdb.org/t/p/w780' + r.poster_path,
+              backdrop: r.backdrop_path ? 'https://image.tmdb.org/t/p/w1280' + r.backdrop_path : null,
+              desc: (r.overview || '').slice(0, 150),
+              synopsis: (r.overview || '').slice(0, 400)
+            };
+            map.set(id, f);
+          }
+          if (!f.platforms.includes(pf)) f.platforms.push(pf);
+        }
+        if (page >= (data.total_pages || 1)) break;
+      }
+    }
+  }
+  return [...map.values()];
+}
+const mediaTypesFor = ct => ct === 'both' ? ['movie', 'tv'] : [ct];
+
+function setStartLoading(on, txt) {
+  starting = on;
+  const b = $('startBtn');
+  b.disabled = on;
+  b.textContent = on ? (txt || 'Bezig…') : (solo ? '🎬 Begin' : 'Start de game');
+}
+
+const GENRE_GRADIENT = {
+  'Sci-Fi':   'linear-gradient(160deg,#0b3d91,#7b2ff7)',
+  'Actie':    'linear-gradient(160deg,#b21f1f,#fd5e53)',
+  'Drama':    'linear-gradient(160deg,#283e51,#485563)',
+  'Comedy':   'linear-gradient(160deg,#f7971e,#ffd200)',
+  'Mystery':  'linear-gradient(160deg,#41295a,#2f0743)',
+  'Horror':   'linear-gradient(160deg,#000000,#434343)',
+  'Romance':  'linear-gradient(160deg,#e55d87,#5fc3e4)',
+  'Thriller': 'linear-gradient(160deg,#16222a,#3a6073)',
+  'Animatie': 'linear-gradient(160deg,#36d1dc,#5b86e5)',
+  'Misdaad':  'linear-gradient(160deg,#232526,#8e0e00)',
+  'Oorlog':   'linear-gradient(160deg,#3e5151,#decba4)',
+  'Avontuur': 'linear-gradient(160deg,#1d4350,#a43931)',
+  'Familie':  'linear-gradient(160deg,#ff5f6d,#ffc371)',
+  'Muziek':   'linear-gradient(160deg,#5f2c82,#49a09d)',
+  'Fantasy':  'linear-gradient(160deg,#3a1c71,#4ca1af)',
+  'Documentaire': 'linear-gradient(160deg,#373b44,#4286f4)'
+};
+const genreGrad = g => GENRE_GRADIENT[g] || 'linear-gradient(160deg,#434343,#000000)';
+
+/* ----------------------------- App state ----------------------------- */
+const $ = id => document.getElementById(id);
+let room = null, isHost = false, roomCode = '';
+let myName = '';
+const roster = new Map();             // peerId -> name (incl. self) via gossip
+let selectedPlatforms = new Set(['netflix','prime','hbomax','disney']);
+let threshold = 0;                    // 0 = "iedereen"
+const myLikes = new Set();            // film ids die ik heb geliket
+const likesByPeer = new Map();        // peerId -> { v:versie, ids:Set } (incl. self)
+let myLikesVersion = 0;
+const shownMatches = new Set();       // film ids al gevierd
+let deck = [];                        // geordende films voor deze game
+let deckIndex = 0;
+let started = false;
+let startPayload = null;              // host bewaart dit om te kunnen herhalen
+let gotStart = false;
+let sendRoster, sendLikes, sendStart;
+let announceTimer = null, hiddenSince = 0;
+let starting = false;
+let solo = false;
+let contentType = 'movie';   // movie | tv | both
+let personalize = true;      // solo-dek op eigen smaak sorteren
+let genrePrefs = null;       // Map genre -> voorkeurgewicht (0..1)
+
+/* ----------------------------- Helpers ----------------------------- */
+function show(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(screenId).classList.add('active');
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+const colorFor = name => {
+  let h = 0; for (const c of name) h = (h*31 + c.charCodeAt(0)) % 360;
+  return `hsl(${h} 65% 45%)`;
+};
+const initials = name => name.trim().slice(0,2).toUpperCase() || '??';
+function code4() {
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = ''; for (let i=0;i<4;i++) s += a[Math.floor(Math.random()*a.length)];
+  return s;
+}
+// Deterministische shuffle zodat iedereen dezelfde volgorde ziet
+function seededShuffle(arr, seed) {
+  const a = arr.slice();
+  let s = seed >>> 0;
+  const rnd = () => { s = (s*1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  for (let i=a.length-1;i>0;i--) { const j = Math.floor(rnd()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+const effThreshold = () => threshold && threshold > 0 ? threshold : roster.size;
+
+/* ----------------------------- Networking ----------------------------- *
+ * Gossip-relay: elk bericht (roster/likes/start) wordt doorgestuurd naar je
+ * eigen peers. Zo zien en matchen ook spelers die niet direct met elkaar
+ * verbonden zijn elkaar, zolang de groep via de host samenhangt. */
+function connect(code) {
+  roomCode = code;
+  room = joinRoom({
+    appId: 'filmmatch-nl-v1',
+    relayUrls: [
+      'wss://relay.damus.io',
+      'wss://nos.lol',
+      'wss://relay.nostr.band',
+      'wss://nostr.mom',
+      'wss://relay.snort.social'
+    ],
+    rtcConfig: { iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    ] }
+  }, code);
+
+  // ikzelf sta in de roster + likes
+  roster.set(selfId, myName);
+  likesByPeer.set(selfId, { v: myLikesVersion, ids: new Set(myLikes) });
+
+  [sendRoster] = room.makeAction('roster');
+  [sendLikes]  = room.makeAction('likes');
+  [sendStart]  = room.makeAction('start');
+  const [, getRoster] = room.makeAction('roster');
+  const [, getLikes]  = room.makeAction('likes');
+  const [, getStart]  = room.makeAction('start');
+
+  getRoster((msg) => {
+    if (!msg || !msg.id) return;
+    if (roster.get(msg.id) === msg.name) return;     // al bekend -> stop (geen loop)
+    roster.set(msg.id, String(msg.name).slice(0, 14));
+    renderLobby(); updateConn();
+    sendRoster(msg);                                 // doorsturen naar mijn peers
+  });
+
+  getLikes((msg) => {
+    if (!msg || !msg.id) return;
+    const cur = likesByPeer.get(msg.id);
+    if (cur && cur.v >= msg.v) return;               // niet nieuwer -> stop
+    likesByPeer.set(msg.id, { v: msg.v, ids: new Set(msg.ids) });
+    recomputeMatches();
+    sendLikes(msg);                                  // doorsturen
+  });
+
+  getStart((cfg) => {
+    if (!startPayload) startPayload = cfg;
+    applyStart(cfg);
+    sendStart(cfg);                                  // doorsturen
+  });
+
+  room.onPeerJoin(peer => {
+    // stuur alles wat ik weet direct naar de nieuwe peer (snel inhalen)
+    for (const [id, name] of roster) sendRoster({ id, name }, peer);
+    for (const [id, info] of likesByPeer) sendLikes({ id, v: info.v, ids: [...info.ids] }, peer);
+    if (startPayload) sendStart(startPayload, peer);
+    updateConn(); renderLobby();
+  });
+
+  room.onPeerLeave(peer => {
+    roster.delete(peer);
+    likesByPeer.delete(peer);
+    renderLobby(); updateConn(); recomputeMatches();
+  });
+
+  // direct + periodiek aankondigen (helpt convergentie en herverbinden)
+  announce();
+  clearInterval(announceTimer);
+  announceTimer = setInterval(announce, 4000);
+}
+
+function announce() {
+  if (!room) return;
+  sendRoster({ id: selfId, name: myName });
+  const mine = likesByPeer.get(selfId);
+  if (mine) sendLikes({ id: selfId, v: mine.v, ids: [...mine.ids] });
+  // startPayload (groot dek) niet periodiek: wordt gericht naar nieuwe peers gestuurd
+}
+
+function bumpMyLikes() {
+  myLikesVersion++;
+  likesByPeer.set(selfId, { v: myLikesVersion, ids: new Set(myLikes) });
+  if (sendLikes) sendLikes({ id: selfId, v: myLikesVersion, ids: [...myLikes] });
+  updateLikePill();
+  recomputeMatches();
+}
+
+function applyStart(cfg) {
+  if (gotStart) return;          // voorkom opnieuw starten / dek-reset
+  gotStart = true;
+  selectedPlatforms = new Set(cfg.platforms);
+  threshold = cfg.threshold || 0;
+  // nieuw formaat: volledige film-objecten; oud formaat: ids uit FILMS
+  deck = (cfg.films || (cfg.ids || []).map(id => FILMS.find(f => f.id === id))).filter(Boolean);
+  deckIndex = 0;
+  startGame();
+}
+
+function updateConn() {
+  const n = roster.size;
+  const dot = $('connDot'), txt = $('connText');
+  if (n > 1) { dot.classList.remove('off'); txt.textContent = `Verbonden — ${n} spelers`; }
+  else { dot.classList.add('off'); txt.textContent = 'Wachten op spelers…'; }
+}
+
+/* ----------------------------- Lobby UI ----------------------------- */
+function renderLobby() {
+  $('roomCodeView').textContent = roomCode;
+  $('playerCount').textContent = `(${roster.size})`;
+  const list = $('playerList'); list.innerHTML = '';
+  // host (room-maker) eerst weergeven is lastig P2P; markeer self
+  for (const [pid, name] of roster) {
+    const li = document.createElement('li');
+    const av = document.createElement('div');
+    av.className = 'avatar'; av.style.background = colorFor(name); av.textContent = initials(name);
+    const nm = document.createElement('div'); nm.style.flex = '1'; nm.style.fontWeight = '600';
+    nm.textContent = name + (pid === selfId ? ' (jij)' : '');
+    li.appendChild(av); li.appendChild(nm);
+    if (pid === selfId && isHost) { const b = document.createElement('span'); b.className='badge host'; b.textContent='host'; li.appendChild(b); }
+    list.appendChild(li);
+  }
+  renderThresholds();
+  renderPlatformViews();
+  if (solo) {
+    $('startBtn').disabled = starting || selectedPlatforms.size === 0;
+    $('startBtn').style.display = '';
+  } else {
+    // start alleen voor host, minimaal 2 spelers
+    $('startBtn').disabled = starting || !(isHost && roster.size >= 2 && selectedPlatforms.size > 0);
+    $('startBtn').style.display = isHost ? '' : 'none';
+  }
+}
+
+function renderContentType() {
+  const wrap = $('contentPicker'); if (!wrap) return; wrap.innerHTML = '';
+  const opts = [['movie', '🎬 Films'], ['tv', '📺 Series'], ['both', '🎞️ Beide']];
+  for (const [val, label] of opts) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = contentType === val ? 'on' : '';
+    b.onclick = () => { contentType = val; renderContentType(); };
+    wrap.appendChild(b);
+  }
+}
+
+function renderPersonalize() {
+  // alleen zinvol in solo én ingelogd
+  $('personalizeBlock').style.display = (solo && currentUser) ? '' : 'none';
+  const wrap = $('personalizePicker'); if (!wrap) return; wrap.innerHTML = '';
+  for (const [val, label] of [[true, '🎯 Op mijn smaak'], [false, '🔀 Willekeurig']]) {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = personalize === val ? 'on' : '';
+    b.onclick = () => { personalize = val; renderPersonalize(); };
+    wrap.appendChild(b);
+  }
+}
+
+function renderPlatformPicker() {
+  const wrap = $('platformPicker'); wrap.innerHTML = '';
+  for (const key of Object.keys(PLATFORM_META)) {
+    const el = document.createElement('div');
+    el.className = `pf ${key}` + (selectedPlatforms.has(key) ? ' on' : '');
+    el.innerHTML = `<span class="dot" style="background:var(--${key})"></span>${PLATFORM_META[key].name}`;
+    el.onclick = () => {
+      if (selectedPlatforms.has(key)) { if (selectedPlatforms.size>1) selectedPlatforms.delete(key); }
+      else selectedPlatforms.add(key);
+      renderPlatformPicker(); renderLobby();
+    };
+    wrap.appendChild(el);
+  }
+}
+function renderPlatformViews() {
+  const view = $('platformView'); if (!view) return; view.innerHTML = '';
+  for (const key of selectedPlatforms) {
+    const el = document.createElement('div');
+    el.className = `pf ${key} on disabled`;
+    el.innerHTML = `<span class="dot" style="background:var(--${key})"></span>${PLATFORM_META[key].name}`;
+    view.appendChild(el);
+  }
+}
+function renderThresholds() {
+  const wrap = $('thresholdPicker'); if (!wrap) return; wrap.innerHTML = '';
+  const n = Math.max(roster.size, 2);
+  const mk = (val, label) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.className = ((threshold===0&&val===0)||threshold===val) ? 'on' : '';
+    b.onclick = () => { threshold = val; renderThresholds(); };
+    wrap.appendChild(b);
+  };
+  mk(0, `Iedereen (${n})`);
+  for (let v=2; v<n; v++) mk(v, `${v} spelers`);
+}
+
+/* ----------------------------- Game ----------------------------- */
+async function hostStart() {
+  if (!isHost || starting) return;
+  if (roster.size < 2) { toast('Wacht op minstens 1 vriend 🙂'); return; }
+  const key = getTmdbKey();
+  const seed = [...roomCode].reduce((a, c) => a + c.charCodeAt(0), 7);
+  let films;
+  if (key) {
+    setStartLoading(true, contentType === 'tv' ? '📺 Series ophalen…' : '🎬 Ophalen…');
+    try {
+      films = await fetchLiveDeck([...selectedPlatforms], key, mediaTypesFor(contentType));
+    } catch (e) {
+      toast('TMDB-fout: ' + e.message);
+      setStartLoading(false); renderLobby(); return;
+    }
+    setStartLoading(false);
+    if (!films.length) { toast('Niks gevonden — controleer sleutel/platforms'); renderLobby(); return; }
+  } else {
+    if (contentType === 'tv') { toast('Series vereisen een TMDB-sleutel. Voeg er een toe of kies Films.'); renderLobby(); return; }
+    films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+    if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); renderLobby(); return; }
+  }
+  films = seededShuffle(films, seed).slice(0, 400);   // dek-limiet i.v.m. verzendgrootte
+  startPayload = { platforms: [...selectedPlatforms], threshold, films };
+  sendStart(startPayload);
+  applyStart(startPayload);
+}
+
+function startGame() {
+  started = true;
+  lastSwipe = null;
+  $('undoBtn').disabled = true;
+  // solo: geen matches/diagnose tonen
+  $('matchesPill').style.display = solo ? 'none' : '';
+  $('dbg').style.display = solo ? 'none' : '';
+  show('game');
+  renderDeck();
+  updateMatchCount();
+  updateLikePill();
+}
+
+function renderDeck() {
+  const el = $('deck'); el.innerHTML = '';
+  $('deckLeft').textContent = Math.max(0, deck.length - deckIndex);
+  if (deckIndex >= deck.length) {
+    flushSwipes();
+    el.innerHTML = solo
+      ? `<div class="empty"><div class="big">🎉</div><div>Je hebt alles gezien!</div><button class="btn-primary" id="seeMyListBtn" style="margin-top:14px;">❤️ Bekijk jouw lijst (${myLikes.size})</button></div>`
+      : `<div class="empty"><div class="big">🎉</div><div>Je hebt alles gezien!<br>Wachten op je vrienden…</div></div>`;
+    const b = $('seeMyListBtn'); if (b) b.onclick = () => { renderMyLikes(); show('likesScreen'); };
+    $('actions').style.visibility = 'hidden';
+    return;
+  }
+  $('actions').style.visibility = 'visible';
+  // render top 2 cards (current + next) for depth
+  for (let k = Math.min(deckIndex+1, deck.length-1); k >= deckIndex; k--) {
+    el.appendChild(buildCard(deck[k], k === deckIndex));
+  }
+}
+
+function buildCard(film, isTop) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.id = film.id;
+  if (!isTop) card.style.transform = 'scale(.95) translateY(10px)';
+
+  const platformChips = film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
+  card.innerHTML = `
+    <div class="poster" style="background:${genreGrad(film.genre)}">
+      <div class="emoji">${film.emoji}</div>
+      <div class="bigtitle">${film.title}</div>
+    </div>
+    ${film.poster ? `<img class="poster-img" src="${imgSize(film.poster, 'original')}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+    <div class="shade"></div>
+    <div class="stamp like">LIKE</div>
+    <div class="stamp nope">NOPE</div>
+    <div class="info">
+      <h3>${film.title}</h3>
+      <div class="meta">
+        ${film.rating ? `<span class="star">★ ${film.rating.toFixed(1)}</span>` : ''}
+        ${film.year ? `<span>${film.year}</span>` : ''}
+        ${film.runtime ? `<span>${film.runtime} min</span>` : ''}
+      </div>
+      <div class="desc">${film.desc || ''}</div>
+      <div class="chips">
+        ${isTv(film) ? '<span class="chip type">📺 Serie</span>' : ''}
+        <span class="chip genre">${film.genre}</span>
+        ${platformChips}
+      </div>
+    </div>`;
+  if (isTop) attachDrag(card);
+  return card;
+}
+
+/* swipe / drag */
+function attachDrag(card) {
+  let startX=0, startY=0, dx=0, dy=0, dragging=false, t0=0;
+  const like = card.querySelector('.stamp.like');
+  const nope = card.querySelector('.stamp.nope');
+  const down = e => {
+    dragging = true; const p = point(e);
+    startX = p.x; startY = p.y; t0 = Date.now(); card.style.transition = 'none';
+  };
+  const move = e => {
+    if (!dragging) return;
+    const p = point(e); dx = p.x - startX; dy = p.y - startY;
+    const rot = dx / 18;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    const r = Math.min(Math.abs(dx)/120, 1);
+    like.style.opacity = dx > 0 && Math.abs(dx) > Math.abs(dy) ? r : 0;
+    nope.style.opacity = dx < 0 && Math.abs(dx) > Math.abs(dy) ? r : 0;
+  };
+  const up = () => {
+    if (!dragging) return; dragging = false;
+    card.style.transition = 'transform .3s ease';
+    const dist = Math.hypot(dx, dy), dt = Date.now() - t0;
+    if (dist < 10 && dt < 350) { reset(); openDetails(deck[deckIndex]); }      // tik = details
+    else if (dy < -100 && Math.abs(dy) > Math.abs(dx)) { reset(); openDetails(deck[deckIndex]); } // omhoog vegen = details
+    else if (dx > 110) swipe(card, true);
+    else if (dx < -110) swipe(card, false);
+    else reset();
+    function reset(){ card.style.transform = ''; like.style.opacity=0; nope.style.opacity=0; }
+  };
+  card.addEventListener('pointerdown', down);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  card._cleanup = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+}
+const point = e => ({ x: e.clientX, y: e.clientY });
+
+let lastSwipe = null;   // { film, liked } voor undo
+function swipe(card, liked) {
+  const dir = liked ? 1 : -1;
+  card.style.transform = `translate(${dir*600}px, ${ -40}px) rotate(${dir*30}deg)`;
+  card.style.opacity = '0';
+  if (card._cleanup) card._cleanup();
+  const film = deck[deckIndex];
+  lastSwipe = { film, liked };
+  $('undoBtn').disabled = false;
+  if (film) logSwipe(film, liked);
+  if (liked && film) { myLikes.add(film.id); bumpMyLikes(); saveLike(film); }
+  deckIndex++;
+  setTimeout(renderDeck, 220);
+}
+
+function undoSwipe() {
+  if (!lastSwipe || deckIndex === 0) return;
+  deckIndex--;
+  if (pendingSwipes.length) pendingSwipes.pop();   // laatste swipe-log terugdraaien (indien nog niet verzonden)
+  if (lastSwipe.liked && lastSwipe.film) { myLikes.delete(lastSwipe.film.id); bumpMyLikes(); removeLikeFromCloud(lastSwipe.film); }
+  lastSwipe = null;
+  $('undoBtn').disabled = true;
+  renderDeck();
+  toast('Swipe teruggedraaid ↩');
+}
+
+function programmaticSwipe(liked) {
+  if (deckIndex >= deck.length) return;
+  const cards = $('deck').querySelectorAll('.card');
+  const top = cards[cards.length - 1]; // huidige kaart wordt als laatste toegevoegd = bovenop
+  if (top) swipe(top, liked);
+}
+
+/* ----------------------------- Detail sheet ----------------------------- */
+const detailCache = new Map();   // tmdbId -> TMDB details
+let sheetFilm = null;
+
+function openDetails(film) {
+  if (!film) return;
+  sheetFilm = film;
+  const heroImg = imgSize(film.backdrop || film.poster, 'original');
+  $('sheetHero').style.background = heroImg
+    ? `center/cover no-repeat url("${heroImg}")` : genreGrad(film.genre);
+  $('sheetEmoji').textContent = film.poster ? '' : film.emoji;
+  $('sheetTitle').textContent = film.title + (film.year ? ` (${film.year})` : '');
+  $('sheetMeta').innerHTML = [
+    film.rating ? `<span class="star">★ ${film.rating.toFixed(1)}</span>` : '',
+    film.runtime ? `<span>${film.runtime} min</span>` : '',
+    `<span>${film.genre}</span>`
+  ].filter(Boolean).join('');
+  $('sheetChips').innerHTML = (isTv(film) ? '<span class="chip type">📺 Serie</span>' : '') + film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
+  $('sheetTagline').style.display = 'none';
+  $('sheetSyn').textContent = film.synopsis || film.desc || 'Geen beschrijving beschikbaar.';
+  $('sheetExtra').innerHTML = '';
+  $('sheetDecide').style.display = (film === deck[deckIndex]) ? '' : 'none';
+  $('sheetWrap').classList.add('active');
+
+  const key = getTmdbKey();
+  if (key && film.tmdbId) loadRichDetails(film, key);
+}
+function closeDetails() { $('sheetWrap').classList.remove('active'); sheetFilm = null; }
+
+async function loadRichDetails(film, key) {
+  const ckey = film.id, path = isTv(film) ? '/tv/' : '/movie/';
+  if (detailCache.has(ckey)) { if (sheetFilm && sheetFilm.id === ckey) renderRich(detailCache.get(ckey), film); return; }
+  $('sheetExtra').innerHTML = '<div class="loading"><span class="spin"></span>Cast &amp; trailer laden…</div>';
+  try {
+    const d = await tmdbGet(path + film.tmdbId, { language: 'nl-NL', append_to_response: 'credits,videos' }, key);
+    detailCache.set(ckey, d);
+    if (sheetFilm && sheetFilm.id === ckey) renderRich(d, film);
+  } catch (e) { $('sheetExtra').innerHTML = ''; }
+}
+
+function renderRich(d, film) {
+  if (d.backdrop_path) $('sheetHero').style.background = `center/cover no-repeat url("https://image.tmdb.org/t/p/original${d.backdrop_path}")`;
+  if (d.tagline) { $('sheetTagline').textContent = '“' + d.tagline + '”'; $('sheetTagline').style.display = ''; }
+  if (d.overview) $('sheetSyn').textContent = d.overview;
+  const tv = isTv(film);
+  let makerLabel = 'Regie', makerName = '';
+  if (tv) {
+    const creators = (d.created_by || []).map(c => c.name);
+    makerLabel = creators.length > 1 ? 'Makers' : 'Maker';
+    makerName = creators.join(', ');
+  } else {
+    const director = (d.credits && d.credits.crew || []).find(c => c.job === 'Director');
+    makerName = director ? director.name : '';
+  }
+  const cast = (d.credits && d.credits.cast || []).slice(0, 8);
+  let html = '';
+  if (tv && d.number_of_seasons) html += `<div class="section-h">Omvang</div><div class="crew">${d.number_of_seasons} seizoen${d.number_of_seasons > 1 ? 'en' : ''}${d.number_of_episodes ? ` · ${d.number_of_episodes} afleveringen` : ''}</div>`;
+  if (makerName) html += `<div class="section-h">${makerLabel}</div><div class="crew">${makerName}</div>`;
+  if (cast.length) {
+    html += '<div class="section-h">Cast</div><div class="cast">' + cast.map(c => `
+      <div class="c">
+        <div class="ph" style="${c.profile_path ? `background-image:url('https://image.tmdb.org/t/p/w185${c.profile_path}')` : ''}">${c.profile_path ? '' : '🎭'}</div>
+        <div class="nm">${c.name}</div>
+        <div class="ch">${c.character || ''}</div>
+      </div>`).join('') + '</div>';
+  }
+  $('sheetExtra').innerHTML = html;
+}
+
+// sleep de hero naar beneden om te sluiten
+(function () {
+  const hero = $('sheetHero'); let sy = 0, drag = false;
+  hero.addEventListener('pointerdown', e => { sy = e.clientY; drag = true; $('sheet').style.transition = 'none'; });
+  window.addEventListener('pointermove', e => { if (!drag) return; const d = Math.max(0, e.clientY - sy); $('sheet').style.transform = `translateY(${d}px)`; });
+  window.addEventListener('pointerup', e => { if (!drag) return; drag = false; $('sheet').style.transition = ''; const d = Math.max(0, e.clientY - sy); $('sheet').style.transform = ''; if (d > 110) closeDetails(); });
+})();
+
+/* ----------------------------- Matching ----------------------------- */
+function likeCount(id) {
+  let c = 0;
+  for (const info of likesByPeer.values()) if (info.ids.has(id)) c++;
+  return c;
+}
+function recomputeMatches() {
+  const need = effThreshold();
+  for (const film of deck) {   // dek = de films die in het spel zitten (curated óf live)
+    if (shownMatches.has(film.id)) continue;
+    if (likeCount(film.id) >= need && need >= 2) {
+      shownMatches.add(film.id);
+      celebrate(film);
+    }
+  }
+  updateMatchCount();
+}
+function updateMatchCount() {
+  $('matchCount').textContent = shownMatches.size;
+  if (!solo) updateDbg();
+}
+function updateLikePill() {
+  $('likeCountPill').textContent = myLikes.size;
+}
+function updateDbg() {
+  const el = $('dbg'); if (!el) return;
+  let top = 0, topId = '';
+  for (const f of deck) { const c = likeCount(f.id); if (c > top) { top = c; topId = f.id; } }
+  el.textContent = `👥 ${roster.size} spelers · match bij ${effThreshold()} · jij ${myLikes.size} likes · likes-data van ${likesByPeer.size} · hoogste overlap ${top}`;
+}
+
+let matchQueue = [];
+let overlayOpen = false;
+let currentMatchFilm = null;
+function celebrate(film) {
+  matchQueue.push(film);
+  saveMatch(film);
+  if (!overlayOpen) showNextMatch();
+}
+function matchedNames(filmId) {
+  const names = [];
+  for (const [pid, info] of likesByPeer) if (info.ids.has(filmId)) names.push(pid === selfId ? 'Jij' : (roster.get(pid) || 'Speler'));
+  return names;
+}
+function joinNames(arr) {
+  if (arr.length <= 1) return arr[0] || '';
+  return arr.slice(0, -1).join(', ') + ' & ' + arr[arr.length - 1];
+}
+function showNextMatch() {
+  if (matchQueue.length === 0) { overlayOpen = false; return; }
+  overlayOpen = true;
+  const film = matchQueue.shift();
+  currentMatchFilm = film;
+  $('matchTitle').textContent = `${film.title}${film.year ? ` (${film.year})` : ''}`;
+  $('matchPoster').style.background = film.poster
+    ? `center/cover no-repeat url("${imgSize(film.backdrop || film.poster, 'w780')}"), ${genreGrad(film.genre)}`
+    : genreGrad(film.genre);
+  const who = joinNames(matchedNames(film.id));
+  $('matchWho').textContent = who ? `${who} ${matchedNames(film.id).length > 1 || who !== 'Jij' ? 'willen' : 'wil'} dit kijken` : '';
+  $('matchPlatforms').innerHTML = film.platforms.map(p => `<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('');
+  $('matchOverlay').classList.add('active');
+  if (navigator.vibrate) navigator.vibrate([40,30,40]);
+}
+$('keepSwipingBtn').onclick = () => {
+  $('matchOverlay').classList.remove('active');
+  setTimeout(showNextMatch, 250);
+};
+
+/* lijst-item bouwer (gedeeld door matches + jouw likes) */
+function filmListItem(f) {
+  const li = document.createElement('li');
+  li.style.cursor = 'pointer';
+  li.innerHTML = `
+    <div class="thumb" style="background:${f.poster ? `center/cover no-repeat url('${imgSize(f.poster, 'w342')}')` : genreGrad(f.genre)}">${f.poster ? '' : f.emoji}</div>
+    <div style="flex:1">
+      <div class="mt">${f.title} <span style="color:var(--muted);font-weight:400">${f.year || ''}</span></div>
+      <div class="mm">${f.rating ? `★ ${f.rating.toFixed(1)} · ` : ''}${f.genre}${f.runtime ? ` · ${f.runtime} min` : ''}</div>
+      <div class="chips" style="margin-top:6px">${f.platforms.map(p=>`<span class="chip ${p}">${PLATFORM_META[p].name}</span>`).join('')}</div>
+    </div>`;
+  li.onclick = () => openDetails(f);
+  return li;
+}
+
+/* matches lijst */
+function renderMatchList() {
+  const ul = $('matchListFull'); ul.innerHTML = '';
+  const matched = deck.filter(f => shownMatches.has(f.id));   // dek bevat zowel curated als live films
+  $('noMatches').style.display = matched.length ? 'none' : 'flex';
+  for (const f of matched) ul.appendChild(filmListItem(f));
+}
+
+/* jouw eigen likes */
+function renderMyLikes() {
+  const ul = $('likeListFull'); ul.innerHTML = '';
+  const liked = deck.filter(f => myLikes.has(f.id));
+  $('noLikes').style.display = liked.length ? 'none' : 'flex';
+  $('likesTitle').textContent = solo ? 'Jouw filmlijst' : 'Jouw likes';
+  $('likesSub').textContent = solo
+    ? `${liked.length} ${liked.length === 1 ? 'film' : 'films'} die jij wilt zien.`
+    : 'Alle films die jij leuk vond — jouw persoonlijke kijklijst voor de volgende keer.';
+  for (const f of liked) ul.appendChild(filmListItem(f));
+}
+
+/* ----------------------------- Accounts (Supabase) ----------------------------- */
+function authErr(msg) { $('authError').textContent = msg || ''; }
+function setAuthBusy(on) { $('loginBtn').disabled = on; $('registerBtn').disabled = on; }
+
+async function doRegister() {
+  const u = $('authUser').value.trim();
+  const p = $('authPass').value;
+  authErr('');
+  if (u.length < 3) return authErr('Gebruikersnaam minimaal 3 tekens.');
+  if (!/^[a-zA-Z0-9._-]+$/.test(u)) return authErr('Gebruik alleen letters, cijfers, . _ -');
+  if (p.length < 6) return authErr('Wachtwoord minimaal 6 tekens.');
+  setAuthBusy(true);
+  const { data, error } = await sb.auth.signUp({ email: userEmail(u), password: p, options: { data: { display_name: u } } });
+  setAuthBusy(false);
+  if (error) return authErr(/already|registered|exists/i.test(error.message) ? 'Die gebruikersnaam bestaat al — kies "Inloggen".' : error.message);
+  if (!data.session) return authErr('Account gemaakt, maar geen sessie. Zet in Supabase "Confirm email" uit (Authentication → Providers → Email).');
+  await onLoggedIn();
+}
+
+async function doLogin() {
+  const u = $('authUser').value.trim();
+  const p = $('authPass').value;
+  authErr('');
+  if (!u || !p) return authErr('Vul je gebruikersnaam en wachtwoord in.');
+  setAuthBusy(true);
+  const { error } = await sb.auth.signInWithPassword({ email: userEmail(u), password: p });
+  setAuthBusy(false);
+  if (error) return authErr('Onjuiste gebruikersnaam of wachtwoord.');
+  await onLoggedIn();
+}
+
+async function onLoggedIn() {
+  const { data: { user } } = await sb.auth.getUser();
+  currentUser = user;
+  myUsername = (user && user.user_metadata && user.user_metadata.display_name) || (user && user.email ? user.email.split('@')[0] : 'speler');
+  if ($('nameInput')) $('nameInput').value = myUsername;
+  authErr(''); $('authPass').value = '';
+  updateAccountBar();
+  show('home');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; myUsername = null;
+  updateAccountBar();
+  show('auth');
+}
+
+function updateAccountBar() {
+  const bar = $('accountBar'); if (!bar) return;
+  if (currentUser) {
+    bar.innerHTML = `<span>👤 ingelogd als <b>${myUsername}</b></span><span><a id="portalLink">Mijn lijst</a> · <a id="logoutLink">Uitloggen</a></span>`;
+    $('portalLink').onclick = openPortal;
+    $('logoutLink').onclick = doLogout;
+  } else {
+    bar.innerHTML = `<span>Je speelt als gast</span><a id="toLoginLink">Inloggen / account maken</a>`;
+    $('toLoginLink').onclick = () => show('auth');
+  }
+}
+
+/* Sync van likes + matches naar de cloud (alleen ingelogd) */
+function saveLike(film) {
+  if (!currentUser || !film) return;
+  sb.from('watchlist').upsert({
+    user_id: currentUser.id, film_id: film.id, tmdb_id: film.tmdbId || null,
+    title: film.title, year: film.year || null, poster: film.poster || null, platforms: film.platforms || []
+  }, { onConflict: 'user_id,film_id' }).then(({ error }) => { if (error) console.warn('saveLike', error.message); });
+}
+function removeLikeFromCloud(film) {
+  if (!currentUser || !film) return;
+  sb.from('watchlist').delete().eq('user_id', currentUser.id).eq('film_id', film.id)
+    .then(({ error }) => { if (error) console.warn('removeLike', error.message); });
+}
+function saveMatch(film) {
+  if (!currentUser || !film) return;
+  sb.from('match_history').insert({
+    user_id: currentUser.id, room_code: roomCode || null, film_id: film.id,
+    title: film.title, poster: film.poster || null,
+    with_names: matchedNames(film.id).filter(n => n !== 'Jij')
+  }).then(({ error }) => { if (error) console.warn('saveMatch', error.message); });
+}
+
+/* Elke swipe loggen (gebufferd) voor het smaak-dashboard */
+let pendingSwipes = [];
+function logSwipe(film, liked) {
+  if (!currentUser || !film) return;
+  pendingSwipes.push({
+    user_id: currentUser.id, film_id: film.id, media_type: isTv(film) ? 'tv' : 'movie',
+    genre: film.genre || null, platforms: film.platforms || [], liked: !!liked
+  });
+  if (pendingSwipes.length >= 8) flushSwipes();
+}
+function flushSwipes() {
+  if (!currentUser || !pendingSwipes.length) return Promise.resolve();
+  const batch = pendingSwipes; pendingSwipes = [];
+  return sb.from('swipes').insert(batch).then(({ error }) => { if (error) { console.warn('swipes', error.message); } });
+}
+
+/* Portal */
+async function openPortal() {
+  if (!currentUser) { show('auth'); return; }
+  $('portalUser').textContent = '👤 ' + myUsername;
+  show('portal');
+  $('dashboard').innerHTML = '<div class="dash-empty"><span class="spin" style="margin:0 auto"></span></div>';
+  $('portalWatchlist').innerHTML = '<li class="sub" style="border:none;background:none;">Laden…</li>';
+  $('portalMatches').innerHTML = '';
+  await flushSwipes();   // eerst gebufferde swipes wegschrijven zodat het dashboard actueel is
+  const [wlRes, mhRes, swRes] = await Promise.all([
+    sb.from('watchlist').select('*').eq('user_id', currentUser.id).order('liked_at', { ascending: false }),
+    sb.from('match_history').select('*').eq('user_id', currentUser.id).order('matched_at', { ascending: false }).limit(50),
+    sb.from('swipes').select('liked,genre,media_type,platforms').eq('user_id', currentUser.id)
+  ]);
+  renderDashboard(swRes.data || []);
+  renderWatchlist(wlRes.data || []);
+  renderHistory(mhRes.data || []);
+  renderFriends();
+}
+
+/* ----------------------------- Vrienden ----------------------------- */
+function friendMsg(t, err) { const el = $('friendMsg'); el.textContent = t || ''; el.style.color = err ? 'var(--nope)' : 'var(--like)'; }
+
+async function addFriend() {
+  const uname = $('friendInput').value.trim().toLowerCase();
+  friendMsg('');
+  if (!uname) return;
+  if (uname === (myUsername || '').toLowerCase()) return friendMsg('Dat ben jij zelf 🙂', true);
+  const { data: prof } = await sb.from('profiles').select('id,display_name,username').eq('username', uname).maybeSingle();
+  if (!prof) return friendMsg('Geen speler gevonden met die gebruikersnaam.', true);
+  const { data: existing } = await sb.from('friendships').select('*')
+    .or(`and(requester.eq.${currentUser.id},addressee.eq.${prof.id}),and(requester.eq.${prof.id},addressee.eq.${currentUser.id})`);
+  if (existing && existing.length) {
+    const e = existing[0];
+    if (e.status === 'accepted') return friendMsg('Jullie zijn al vrienden.', true);
+    if (e.addressee === currentUser.id) {   // zij vroegen mij al -> accepteer
+      await sb.from('friendships').update({ status: 'accepted' }).eq('id', e.id);
+      $('friendInput').value = ''; friendMsg('Verzoek geaccepteerd! 🎉'); return renderFriends();
+    }
+    return friendMsg('Je hebt al een verzoek verstuurd.', true);
+  }
+  const { error } = await sb.from('friendships').insert({ requester: currentUser.id, addressee: prof.id });
+  if (error) return friendMsg('Er ging iets mis: ' + error.message, true);
+  $('friendInput').value = ''; friendMsg('Verzoek verstuurd ✅'); renderFriends();
+}
+
+function friendRow(name, sub, buttons) {
+  const li = document.createElement('li');
+  const av = document.createElement('div');
+  av.className = 'avatar'; av.style.background = colorFor(name); av.textContent = initials(name); av.style.width = '40px'; av.style.height = '40px';
+  const info = document.createElement('div'); info.style.flex = '1';
+  info.innerHTML = `<div class="mt">${name}</div>${sub ? `<div class="mm">${sub}</div>` : ''}`;
+  const acts = document.createElement('div'); acts.className = 'wl-actions';
+  for (const [label, cls, fn] of buttons) { const b = document.createElement('button'); b.className = 'btn-ghost'; b.textContent = label; if (cls) b.style.color = cls; b.onclick = fn; acts.appendChild(b); }
+  li.appendChild(av); li.appendChild(info); li.appendChild(acts);
+  return li;
+}
+
+async function renderFriends() {
+  const { data } = await sb.from('friendships').select('*')
+    .or(`requester.eq.${currentUser.id},addressee.eq.${currentUser.id}`);
+  const rows = data || [];
+  const otherId = r => r.requester === currentUser.id ? r.addressee : r.requester;
+  const ids = [...new Set(rows.map(otherId))];
+  const names = new Map();
+  if (ids.length) {
+    const { data: profs } = await sb.from('profiles').select('id,display_name,username').in('id', ids);
+    for (const p of (profs || [])) names.set(p.id, p.display_name || p.username);
+  }
+  const nameOf = r => names.get(otherId(r)) || 'speler';
+  const incoming = rows.filter(r => r.status === 'pending' && r.addressee === currentUser.id);
+  const outgoing = rows.filter(r => r.status === 'pending' && r.requester === currentUser.id);
+  const friends = rows.filter(r => r.status === 'accepted');
+
+  const reqUl = $('friendReqs'); reqUl.innerHTML = '';
+  for (const r of incoming) {
+    reqUl.appendChild(friendRow(nameOf(r), 'wil je vriend worden', [
+      ['✓ Accepteer', 'var(--like)', async () => { await sb.from('friendships').update({ status: 'accepted' }).eq('id', r.id); renderFriends(); }],
+      ['✕', 'var(--nope)', async () => { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); }]
+    ]));
+  }
+
+  const ul = $('friendList'); ul.innerHTML = '';
+  for (const r of friends) {
+    ul.appendChild(friendRow(nameOf(r), 'vriend', [
+      ['Verwijder', '', async () => { if (confirm('Deze vriend verwijderen?')) { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); } }]
+    ]));
+  }
+  for (const r of outgoing) {
+    ul.appendChild(friendRow(nameOf(r), 'verzoek verstuurd…', [
+      ['Annuleer', '', async () => { await sb.from('friendships').delete().eq('id', r.id); renderFriends(); }]
+    ]));
+  }
+  $('friendCount').textContent = friends.length ? `(${friends.length})` : '';
+  $('friendEmpty').style.display = (friends.length || incoming.length || outgoing.length) ? 'none' : 'block';
+}
+
+function renderDashboard(rows) {
+  const el = $('dashboard');
+  if (!rows.length) {
+    el.innerHTML = '<div class="dash-empty"><span class="big">🎬</span>Nog geen swipe-data. Speel een rondje — daarna zie je hier je smaak: favoriete genres, kieskeurigheid en meer.</div>';
+    return;
+  }
+  const total = rows.length;
+  const likes = rows.filter(r => r.liked).length;
+  const likePct = Math.round(likes / total * 100);
+  const liked = rows.filter(r => r.liked);
+
+  // tellingen op geliket
+  const tally = (arr, keyFn) => {
+    const m = new Map();
+    for (const r of arr) for (const k of [].concat(keyFn(r)).filter(Boolean)) m.set(k, (m.get(k) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const genres = tally(liked, r => r.genre).slice(0, 6);
+  const plats = tally(liked, r => r.platforms);
+  const movieLikes = liked.filter(r => r.media_type !== 'tv').length;
+  const tvLikes = liked.length - movieLikes;
+  const topGenre = genres[0] ? genres[0][0] : '–';
+
+  // KPI-tegels
+  let html = `<div class="stat-row">
+    <div class="stat"><div class="n">${total}</div><div class="l">Swipes</div></div>
+    <div class="stat"><div class="n">${likePct}<small>%</small></div><div class="l">Like-ratio</div></div>
+    <div class="stat"><div class="n" style="font-size:17px;line-height:1.3">${topGenre}</div><div class="l">Topgenre</div></div>
+  </div>`;
+  html += `<div class="sub" style="margin-top:8px;font-size:12.5px">${likePct < 35 ? 'Behoorlijk kieskeurig 🧐' : likePct > 65 ? 'Ruimhartige swiper 😄' : 'Gebalanceerde smaak ⚖️'} · ${likes} likes uit ${total} swipes.</div>`;
+
+  // Top genres (single-hue magnitude bars)
+  if (genres.length) {
+    const max = genres[0][1];
+    html += '<div class="dash-sub">Favoriete genres</div>';
+    html += genres.map(([g, n]) => `<div class="bar-row"><div class="bl">${g}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(n / max * 100)}%"></div></div><div class="bv">${n}</div></div>`).join('');
+  }
+
+  // Films vs series (gelabelde verdeling)
+  if (movieLikes + tvLikes > 0) {
+    const t = movieLikes + tvLikes, mp = Math.round(movieLikes / t * 100), sp = 100 - mp;
+    html += '<div class="dash-sub">Films vs series</div>';
+    html += `<div class="split">${movieLikes ? `<span style="width:${mp}%;background:var(--accent)"></span>` : ''}${tvLikes ? `<span style="width:${sp}%;background:#38bdf8"></span>` : ''}</div>`;
+    html += `<div class="split-legend"><span><span class="dot" style="background:var(--accent)"></span><b>${mp}%</b> films</span><span><span class="dot" style="background:#38bdf8"></span><b>${sp}%</b> series</span></div>`;
+  }
+
+  // Platforms (merk-eigen kleuren + labels als secundaire codering)
+  if (plats.length) {
+    const max = plats[0][1];
+    html += '<div class="dash-sub">Waar je op matcht</div>';
+    html += plats.filter(([p]) => PLATFORM_META[p]).map(([p, n]) => `<div class="bar-row"><div class="bl" style="color:var(--${p})">${PLATFORM_META[p].name}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(n / max * 100)}%;background:var(--${p})"></div></div><div class="bv">${n}</div></div>`).join('');
+  }
+
+  el.innerHTML = html;
+}
+
+function cloudThumb(row) {
+  return `<div class="thumb" style="background:${row.poster ? `center/cover no-repeat url('${imgSize(row.poster, 'w342')}')` : 'linear-gradient(160deg,#434343,#000)'}">${row.poster ? '' : '🎬'}</div>`;
+}
+function renderWatchlist(rows) {
+  const ul = $('portalWatchlist'); ul.innerHTML = '';
+  $('wlCount').textContent = rows.length ? `(${rows.length})` : '';
+  $('wlEmpty').style.display = rows.length ? 'none' : 'block';
+  for (const row of rows) {
+    const li = document.createElement('li');
+    if (row.watched) li.classList.add('wl-watched');
+    const chips = (row.platforms || []).map(p => PLATFORM_META[p] ? `<span class="chip ${p}">${PLATFORM_META[p].name}</span>` : '').join('');
+    li.innerHTML = `
+      ${cloudThumb(row)}
+      <div style="flex:1">
+        <div class="mt">${row.title || row.film_id} <span style="color:var(--muted);font-weight:400">${row.year || ''}</span></div>
+        <div class="chips" style="margin-top:6px">${chips}</div>
+      </div>
+      <div class="wl-actions">
+        <button class="btn-ghost" data-act="watched">${row.watched ? '↺ Terug' : '✓ Gezien'}</button>
+        <button class="btn-ghost" data-act="del">🗑</button>
+      </div>`;
+    li.querySelector('[data-act="watched"]').onclick = async () => {
+      await sb.from('watchlist').update({ watched: !row.watched }).eq('id', row.id);
+      openPortal();
+    };
+    li.querySelector('[data-act="del"]').onclick = async () => {
+      await sb.from('watchlist').delete().eq('id', row.id);
+      myLikes.delete(row.film_id);
+      openPortal();
+    };
+    ul.appendChild(li);
+  }
+}
+function renderHistory(rows) {
+  const ul = $('portalMatches'); ul.innerHTML = '';
+  $('mhEmpty').style.display = rows.length ? 'none' : 'block';
+  for (const row of rows) {
+    const li = document.createElement('li');
+    const withTxt = (row.with_names && row.with_names.length) ? `met ${row.with_names.join(', ')}` : '';
+    li.innerHTML = `
+      ${cloudThumb(row)}
+      <div style="flex:1">
+        <div class="mt">${row.title || row.film_id}</div>
+        <div class="mm">${withTxt}${row.room_code ? ` · room ${row.room_code}` : ''}</div>
+      </div>`;
+    ul.appendChild(li);
+  }
+}
+
+/* Init: bestaande sessie? -> direct ingelogd (onthouden) */
+(async function initAuth() {
+  updateAccountBar();
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) await onLoggedIn();
+  } catch (e) { console.warn('init auth', e); }
+})();
+
+$('loginBtn').onclick = doLogin;
+$('registerBtn').onclick = doRegister;
+$('guestBtn').onclick = () => { updateAccountBar(); show('home'); };
+$('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+$('portalBackBtn').onclick = () => show('home');
+$('portalLogoutBtn').onclick = doLogout;
+$('friendAddBtn').onclick = addFriend;
+$('friendInput').addEventListener('keydown', e => { if (e.key === 'Enter') addFriend(); });
+
+/* ----------------------------- Events ----------------------------- */
+function setLobbyMode(isSolo) {
+  solo = isSolo;
+  const hide = isSolo ? 'none' : '';
+  $('codeBox').style.display = hide;
+  $('playersHeader').style.display = hide;
+  $('playerList').style.display = hide;
+  $('thresholdBlock').style.display = hide;
+  $('statusLine').style.display = hide;
+  $('leaveBtn').style.display = hide;
+  $('lobbyTitle').textContent = isSolo ? 'Solo' : 'Lobby';
+  $('platformSub').textContent = isSolo ? 'Kies op welke diensten je wilt zoeken.' : 'Kies waar jullie op willen swipen.';
+  $('startBtn').textContent = isSolo ? '🎬 Begin' : 'Start de game';
+  $('hostControls').style.display = '';
+  $('guestNote').style.display = 'none';
+}
+
+$('createBtn').onclick = () => {
+  myName = $('nameInput').value.trim();
+  if (!myName) { toast('Vul je naam in 🙂'); return; }
+  isHost = true; threshold = 0;
+  setLobbyMode(false);
+  const code = code4();
+  connect(code);
+  show('lobby');
+  renderContentType();
+  renderPersonalize();
+  renderPlatformPicker();
+  setupTmdbKey();
+  renderLobby(); updateConn();
+};
+
+$('soloBtn').onclick = () => {
+  myName = ($('nameInput').value.trim()) || 'Jij';
+  isHost = true; threshold = 0;
+  setLobbyMode(true);
+  show('lobby');
+  renderContentType();
+  renderPersonalize();
+  renderPlatformPicker();
+  setupTmdbKey();
+  renderLobby();
+};
+
+// Haalt genre-voorkeuren op (Laplace-gesmoothde like-ratio per genre, 0..1).
+async function loadGenrePrefs() {
+  if (!currentUser) return null;
+  const { data, error } = await sb.from('swipes').select('genre,liked').eq('user_id', currentUser.id);
+  if (error || !data || !data.length) return null;
+  const agg = new Map();
+  for (const r of data) {
+    if (!r.genre) continue;
+    const a = agg.get(r.genre) || { l: 0, d: 0 };
+    if (r.liked) a.l++; else a.d++;
+    agg.set(r.genre, a);
+  }
+  const prefs = new Map();
+  for (const [g, a] of agg) prefs.set(g, (a.l + 1) / (a.l + a.d + 2));
+  return prefs.size ? prefs : null;
+}
+// Gewogen shuffle (Efraimidis-Spirakis): hoger gewicht -> vaker vooraan, met behoud van variatie.
+function weightedShuffle(items, weightFn) {
+  return items
+    .map(it => ({ it, k: Math.pow(Math.random(), 1 / Math.max(0.05, weightFn(it))) }))
+    .sort((a, b) => b.k - a.k)
+    .map(x => x.it);
+}
+
+async function soloStart() {
+  const key = getTmdbKey();
+  const seed = Date.now() >>> 0;   // elke solo-sessie een nieuwe volgorde
+  let films;
+  if (key) {
+    setStartLoading(true, contentType === 'tv' ? '📺 Series ophalen…' : '🎬 Ophalen…');
+    try { films = await fetchLiveDeck([...selectedPlatforms], key, mediaTypesFor(contentType)); }
+    catch (e) { toast('TMDB-fout: ' + e.message); setStartLoading(false); return; }
+    setStartLoading(false);
+    if (!films.length) { toast('Niks gevonden — controleer sleutel/platforms'); return; }
+  } else {
+    if (contentType === 'tv') { toast('Series vereisen een TMDB-sleutel. Voeg er een toe of kies Films.'); return; }
+    films = FILMS.filter(f => f.platforms.some(p => selectedPlatforms.has(p)));
+    if (!films.length) { toast('Geen films voor deze platforms zonder TMDB-sleutel (bijv. Videoland). Voeg een sleutel toe of kies andere platforms.'); return; }
+  }
+  let ordered;
+  if (personalize && currentUser) {
+    const prefs = await loadGenrePrefs();
+    if (prefs) { ordered = weightedShuffle(films, f => 0.4 + (prefs.get(f.genre) ?? 0.5)); toast('🎯 Gesorteerd op jouw smaak'); }
+    else ordered = seededShuffle(films, seed);
+  } else {
+    ordered = seededShuffle(films, seed);
+  }
+  deck = ordered.slice(0, 400);
+  deckIndex = 0;
+  gotStart = true;
+  startGame();
+}
+
+function setupTmdbKey() {
+  const inp = $('tmdbKey');
+  inp.value = localStorage.getItem('tmdb_key') || '';
+  const upd = () => {
+    const v = inp.value.trim();
+    if (v) localStorage.setItem('tmdb_key', v); else localStorage.removeItem('tmdb_key');
+    $('tmdbStatus').innerHTML = v
+      ? '✅ Je eigen TMDB-sleutel is actief.'
+      : '✅ Volledige live catalogus actief (standaard) — álle films en series op de gekozen platforms.';
+  };
+  inp.oninput = upd;
+  upd();
+}
+
+$('joinBtn').onclick = () => {
+  myName = $('nameInput').value.trim();
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (!myName) { toast('Vul je naam in 🙂'); return; }
+  if (code.length !== 4) { toast('Code is 4 tekens'); return; }
+  isHost = false; solo = false;
+  setLobbyMode(false);
+  connect(code);
+  show('lobby');
+  $('hostControls').style.display = 'none';
+  $('guestNote').style.display = '';
+  renderLobby(); updateConn();
+};
+
+$('startBtn').onclick = () => solo ? soloStart() : hostStart();
+$('copyBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(roomCode); toast('Code gekopieerd 📋'); }
+  catch { toast('Code: ' + roomCode); }
+};
+// Terug naar het hoofdmenu (ook middenin een spel): room + verbinding netjes afsluiten.
+function goHome() {
+  if (started && !confirm('Terug naar het hoofdmenu? Je verlaat het huidige spel.')) return;
+  flushSwipes();
+  if (announceTimer) { clearInterval(announceTimer); announceTimer = null; }
+  if (room) { try { room.leave(); } catch (e) {} room = null; }
+  sendRoster = sendLikes = sendStart = null;
+  started = false; gotStart = false; solo = false; starting = false; isHost = false;
+  roomCode = ''; startPayload = null; myLikesVersion = 0;
+  roster.clear(); likesByPeer.clear(); myLikes.clear(); shownMatches.clear();
+  deck = []; deckIndex = 0; lastSwipe = null;
+  matchQueue = []; overlayOpen = false; currentMatchFilm = null;
+  $('matchOverlay').classList.remove('active');
+  $('sheetWrap').classList.remove('active');
+  updateAccountBar();
+  show('home');
+}
+$('homeBtn').onclick = goHome;
+$('leaveBtn').onclick = goHome;
+
+$('nopeBtn').onclick = () => programmaticSwipe(false);
+$('likeBtn').onclick = () => programmaticSwipe(true);
+$('infoBtn').onclick = () => openDetails(deck[deckIndex]);
+$('undoBtn').onclick = undoSwipe;
+$('matchesPill').onclick = () => { renderMatchList(); show('matchesScreen'); };
+$('likesPill').onclick = () => { renderMyLikes(); show('likesScreen'); };
+$('backToGameBtn').onclick = () => show('game');
+$('backFromLikesBtn').onclick = () => show('game');
+
+// detailscherm-knoppen
+$('sheetClose').onclick = closeDetails;
+$('sheetBack').onclick = closeDetails;
+$('sheetNope').onclick = () => { closeDetails(); programmaticSwipe(false); };
+$('sheetLike').onclick = () => { closeDetails(); programmaticSwipe(true); };
+$('sheetWrap').addEventListener('click', e => { if (e.target === $('sheetWrap')) closeDetails(); });
+
+// trailer- + waar-kijken-links (gebruikt op het match-scherm)
+function trailerUrl(film) {
+  return 'https://www.youtube.com/results?search_query=' +
+    encodeURIComponent((film.title || '') + ' ' + (film.year || '') + (isTv(film) ? ' serie trailer' : ' trailer'));
+}
+function watchUrl(film) {
+  return film.tmdbId
+    ? `https://www.themoviedb.org/${isTv(film) ? 'tv' : 'movie'}/${film.tmdbId}/watch?locale=NL`   // toont NL-aanbieders
+    : 'https://www.justwatch.com/nl/search?q=' + encodeURIComponent(film.title);
+}
+$('matchTrailer').onclick = () => { if (currentMatchFilm) window.open(trailerUrl(currentMatchFilm), '_blank', 'noopener'); };
+$('matchWatch').onclick = () => { if (currentMatchFilm) window.open(watchUrl(currentMatchFilm), '_blank', 'noopener'); };
+
+// auto-uppercase code input
+$('joinCode').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });
+
+// voorkom per ongeluk verlaten tijdens spel
+window.addEventListener('beforeunload', e => { if (started) { e.preventDefault(); e.returnValue = ''; } });
+
+// Mobiel: bij backgrounden vallen P2P-verbindingen weg. Bij terugkomen
+// opnieuw aankondigen en zo nodig opnieuw joinen om verbindingen te herstellen.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenSince = Date.now(); flushSwipes(); return; }
+  if (!room || !roomCode) return;
+  announce();
+  if (Date.now() - hiddenSince > 4000) {
+    const keep = startPayload;
+    try { room.leave(); } catch (e) {}
+    connect(roomCode);          // herbouwt verbinding; roster/likes blijven behouden
+    startPayload = keep;
+    setTimeout(announce, 800);
+  }
+});
+</script>
+</body>
+</html>
